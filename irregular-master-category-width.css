@@ -1,0 +1,15 @@
+/* イレギュラー受付：大分類ボタンの横幅調整
+ * 長い分類名を収めやすくするため、カード内の左右余白を少しだけ利用する。
+ * 折返し禁止・個別文字サイズ変更・固定高などの強制調整は行わない。
+ */
+#irregularMasterPickerDev .irregularMasterCategoryGrid {
+  margin-left:-6px;
+  margin-right:-6px;
+}
+
+@media (max-width:390px) {
+  #irregularMasterPickerDev .irregularMasterCategoryGrid {
+    margin-left:-7px;
+    margin-right:-7px;
+  }
+}

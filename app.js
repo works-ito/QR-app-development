@@ -3266,6 +3266,107 @@ function changePreviousSettings() {
       }
     }
 
+// 計測だけを再送する。在庫データの自動再送は行わない。
+const CLIENT_METRIC_PREFIX = "qrClientMetricV1:";
+let clientMetricSupported = false;
+let clientMetricBusy = false;
+let clientInventoryRequests = 0;
+let clientMetricTimer = null;
+function clientMetricEntries_() {
+  const entries = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.indexOf(CLIENT_METRIC_PREFIX) === 0) {
+        try { entries.push(JSON.parse(localStorage.getItem(key))); } catch (_) {}
+      }
+    }
+  } catch (_) {}
+  return entries.filter(e => e && e.eventId).sort((a,b) => a.startedAt.localeCompare(b.startedAt));
+}
+function saveClientMetric_(event) {
+  try {
+    localStorage.setItem(CLIENT_METRIC_PREFIX + event.eventId, JSON.stringify(event));
+    const old = clientMetricEntries_();
+    // 最大200件。長期オフラインで上限を超えた場合は古い記録から削除。
+    old.slice(0, Math.max(0, old.length - 200)).forEach(e => localStorage.removeItem(CLIENT_METRIC_PREFIX + e.eventId));
+  } catch (_) { /* 保存不可でも在庫送信は妨げない */ }
+}
+function scheduleClientMetrics_() {
+  if (!clientMetricSupported || clientMetricTimer) return;
+  clientMetricTimer = setTimeout(function() {
+    clientMetricTimer = null;
+    void flushClientMetrics_();
+  }, 5000);
+}
+async function flushClientMetrics_() {
+  if (!clientMetricSupported || clientMetricBusy || clientInventoryRequests || navigator.onLine === false) return;
+  const events = clientMetricEntries_().filter(e => !e.pending || Date.now() - Date.parse(e.startedAt) > 600000).slice(0, 20);
+  if (!events.length) return;
+  clientMetricBusy = true;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(GAS_URL, {
+      method:"POST", headers:{"Content-Type":"text/plain"}, signal:controller.signal,
+      body:JSON.stringify({action:"recordClientTelemetry",events:events})
+    });
+    const result = await response.json();
+    if (response.ok && result.ok === true && Array.isArray(result.acceptedIds)) {
+      result.acceptedIds.forEach(id => {
+        const event = events.find(e => e.eventId === id);
+        // 他タブや遅い在庫応答が確定情報を更新していたら削除しない。
+        if (event && localStorage.getItem(CLIENT_METRIC_PREFIX + id) === JSON.stringify(event)) {
+          localStorage.removeItem(CLIENT_METRIC_PREFIX + id);
+        }
+      });
+    }
+  } catch (_) { /* 応答消失時も同じ計測IDを再送し、GASで重複を除く */ }
+  finally { clearTimeout(timer); clientMetricBusy = false; }
+  // リトライは最大1分おき。ユーザーの在庫送信とは独立。
+  if (clientMetricEntries_().length && !clientMetricTimer) {
+    clientMetricTimer = setTimeout(() => { clientMetricTimer = null; void flushClientMetrics_(); }, 60000);
+  }
+}
+async function measureClientBatch_(payload, send) {
+  const body = JSON.stringify(payload);
+  const first = (payload.records || [])[0] || {};
+  const event = {
+    eventId:"CT-" + (globalThis.crypto && crypto.randomUUID ? crypto.randomUUID() : Date.now() + "-" + Math.random().toString(36).slice(2)),
+    startedAt:new Date().toISOString(), sendId:payload.sendId || payload.batchId || "",
+    user:String(first.user || ""), location:String(first.location || ""), mode:String(first.mode || ""),
+    recordCount:(payload.records || []).length, bodyBytes:new Blob([body]).size,
+    elapsedMs:null, outcome:"結果未確定（画面終了など）", successCount:null, failedCount:null,
+    detail:"", online:navigator.onLine === false ? "offline" : "online（電波品質は不明）",
+    userAgent:String(navigator.userAgent || "").slice(0,250), version:"client-v1", source:"batchWrite", pending:true
+  };
+  saveClientMetric_(event);
+  const begin = performance.now();
+  clientInventoryRequests++;
+  try {
+    const result = await send(body);
+    if (result && result.clientTelemetrySupported === true) clientMetricSupported = true;
+    event.successCount = Number.isFinite(Number(result.successCount)) ? Number(result.successCount) : null;
+    event.failedCount = Number.isFinite(Number(result.failedCount)) ? Number(result.failedCount) : null;
+    event.outcome = event.failedCount > 0 ? (event.successCount > 0 ? "一部失敗" : "GAS拒否・エラー") : (result.ok === false ? "GAS拒否・エラー" : "成功");
+    try {
+      event.detail = JSON.stringify({message:result.message || "",failures:(Array.isArray(result.results) ? result.results : []).filter(r=>r && !r.ok).map(r=>({qr:r.qr || r.managementId || "",message:r.message || r.error || ""}))}).slice(0,1500);
+    } catch (_) { event.detail = "失敗詳細の計測不可"; }
+    return result;
+  } catch (error) {
+    event.outcome = error && error.name === "AbortError" ? "中断・タイムアウト（登録結果不明）" : "通信・応答エラー（登録結果不明）";
+    event.detail = String(error && error.message || error).slice(0,1500);
+    throw error;
+  } finally {
+    event.elapsedMs = Math.max(0,Math.round(performance.now() - begin));
+    event.pending = false;
+    saveClientMetric_(event);
+    clientInventoryRequests--;
+    scheduleClientMetrics_();
+  }
+}
+window.addEventListener("online", scheduleClientMetrics_);
+
     function sendBatchRecords(records, options) {
       const batchId = createBatchId();
       lastPendingSendId = batchId;
@@ -3297,12 +3398,13 @@ function changePreviousSettings() {
        * GASで登録済みなのに応答だけ失われた場合の
        * 二重登録を避けるため、結果不明として止める。
        */
+      return measureClientBatch_(payload, function(clientBody) {
       return fetch(GAS_URL, {
         method:"POST",
         headers:{
           "Content-Type":"text/plain"
         },
-        body:JSON.stringify(payload)
+        body:clientBody
       }).then(async function(response) {
         const responseText = await response.text();
         let result;
@@ -3343,6 +3445,7 @@ function changePreviousSettings() {
         }
 
         return result;
+      });
       });
     }
 

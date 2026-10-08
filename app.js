@@ -3440,9 +3440,31 @@ window.addEventListener("online", scheduleClientMetrics_);
           throw unknownError;
         }
 
+        // レコード別結果がない失敗JSONは、部分書込みの可能性を否定できない。
+        // 明示的な各件結果だけを確定結果として扱い、自動再送は行わない。
+        const resultItems = Array.isArray(result.results) ? result.results : null;
+        const indexes = new Set();
+        const validItems = resultItems && resultItems.length === recordsWithIds.length &&
+          resultItems.every(function(item) {
+            if (!item || typeof item.ok !== "boolean" || !Number.isInteger(item.index) ||
+                item.index < 0 || item.index >= recordsWithIds.length || indexes.has(item.index)) return false;
+            indexes.add(item.index);
+            return true;
+          });
+        const successCount = validItems ? resultItems.filter(function(item) {return item.ok;}).length : -1;
+        if (!validItems || Number(result.successCount) !== successCount ||
+            Number(result.failedCount) !== recordsWithIds.length - successCount ||
+            result.ok !== (successCount === recordsWithIds.length) ||
+            (result.sendId && result.sendId !== batchId)) {
+          const unknownError = new Error("送信結果を確定できません。元ログを確認してください");
+          unknownError.sendId = batchId;
+          throw unknownError;
+        }
         if (!result.sendId) {
           result.sendId = batchId;
         }
+
+
 
         return result;
       });

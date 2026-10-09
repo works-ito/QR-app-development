@@ -1,14 +1,13 @@
 /**
  * QR在庫管理：送信エラーログ受信処理（独立機能）
  * 既存 doPost(e) の action 分岐の先頭に以下を追加：
- * if (data.action === "recordBatchErrors") return jsonOutput_(recordBatchErrors_(ss, data));
+ * if (data.action === "recordBatchErrors") return jsonOutput_(recordBatchErrors(ss, data));
  * data は既存の JSON.parse(e.postData.contents) の結果を使用。
- * 既存 doPost のレスポンス形式に合わせる必要がある場合は、
- * recordBatchErrors_ の戻り値（ContentService TextOutput）をそのまま返す。
+ * recordBatchErrors は通常のオブジェクトを返すため、既存の jsonOutput_ でラップする。
  *
  * doPost 内で取得済みの ss を引数として渡す。
  */
-function recordBatchErrors_(ss, data) {
+function recordBatchErrors(ss, data) {
   const events = Array.isArray(data && data.events) ? data.events.slice(0, 20) : [];
   if (!events.length) return ({ok:true,acceptedIds:[]});
   const lock = LockService.getScriptLock();
@@ -40,7 +39,7 @@ function recordBatchErrors_(ss, data) {
     if (rows.length) sheet.getRange(sheet.getLastRow()+1,1,rows.length,headers.length).setValues(rows);
     return ({ok:true,acceptedIds});
   } catch (error) {
-    console.error("recordBatchErrors_:",error);
+    console.error("recordBatchErrors:",error);
     return ({ok:false,message:String(error),acceptedIds:[]});
   } finally {lock.releaseLock();}
 }

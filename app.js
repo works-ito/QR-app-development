@@ -6641,3 +6641,39 @@ restoreLastSuccessfulSend();
 initializeInventoryDataFoundation();
 startInventoryRefreshTimer();
 startAppVersionCheckTimer();
+
+/*
+ * 一時的な実機通信テスト。URLに ?errorLogTest=1 があるときだけ表示。
+ * 在庫登録APIは呼ばず、エラー記録専用APIのみ送信する。
+ */
+if (new URLSearchParams(window.location.search).get("errorLogTest") === "1") {
+  const testArea = document.createElement("section");
+  testArea.style.cssText = "margin:24px 12px;padding:16px;border:2px solid #777;border-radius:10px";
+  const testButton = document.createElement("button");
+  testButton.type = "button";
+  testButton.textContent = "エラーログ通信テスト（在庫変更なし）";
+  testButton.style.cssText = "display:block;width:100%;padding:14px;font-size:16px";
+  const testStatus = document.createElement("p");
+  testStatus.textContent = "このテストでは出庫・返却を登録しません。";
+  testButton.addEventListener("click", async function() {
+    testButton.disabled = true;
+    const sendId = "MOBILE-ERROR-TEST-" + Date.now();
+    const payload = {
+      sendId,
+      records:[{qr:"TEST-ONLY",mode:"通信テスト",user:"実機テスト",location:"テスト"}]
+    };
+    queueBatchErrors_(payload, {
+      ok:false,failedCount:1,
+      results:[{index:0,ok:false,message:"実機テスト用の意図的な失敗"}]
+    }, null);
+    testStatus.textContent = "記録ID: " + sendId + ":0 ／送信中。記録の成否はシートで確認します。";
+    try {
+      await flushBatchErrors_();
+    } finally {
+      testButton.disabled = false;
+    }
+  });
+  testArea.appendChild(testButton);
+  testArea.appendChild(testStatus);
+  document.body.appendChild(testArea);
+}

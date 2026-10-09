@@ -3281,8 +3281,10 @@ function queueBatchErrors_(payload, result, transportError) {
     });
     const failures = results ? [...byIndex.entries()].filter(([,item]) => item.ok === false) : [];
     // 結果不明は「失敗」と断定しない。管理番号ごとに結果不明として記録する。
-    const indexes = failures.length ? failures.map(([index]) => index)
-      : (!results || transportError ? records.map((_,index) => index) : []);
+    // 結果配列が不完全な場合、未確認レコードは「結果不明」で残す。
+    const complete = results && results.length === records.length && byIndex.size === records.length;
+    const indexes = complete ? failures.map(([index]) => index)
+      : records.map((_,index) => index);
     const now = new Date().toISOString();
     indexes.forEach((index) => {
       const record = records[index] || {};
@@ -3293,7 +3295,7 @@ function queueBatchErrors_(payload, result, transportError) {
         recordIndex:index, managementId:String(record.qr || record.managementId || record.id || ""),
         mode:String(record.mode || ""), user:String(record.user || ""),
         location:String(record.location || ""), userAgent:String(navigator.userAgent || "").slice(0,500),
-        failedAt:now, status:item && item.ok === false ? "失敗" : "結果不明",
+        failedAt:now, status:complete && item && item.ok === false ? "失敗" : "結果不明",
         message:String(item && (item.message || item.error) || (transportError && transportError.message) || (result && result.message) || "送信結果不明").slice(0,3000)
       };
       localStorage.setItem(BATCH_ERROR_PREFIX + eventId, JSON.stringify(event));

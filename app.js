@@ -3282,7 +3282,8 @@ function queueBatchErrors_(payload, result, transportError) {
     const failures = results ? [...byIndex.entries()].filter(([,item]) => item.ok === false) : [];
     // 結果不明は「失敗」と断定しない。管理番号ごとに結果不明として記録する。
     // 結果配列が不完全な場合、未確認レコードは「結果不明」で残す。
-    const complete = results && results.length === records.length && byIndex.size === records.length;
+    const complete = results && results.length === records.length && byIndex.size === records.length &&
+      results.every(item => item && typeof item.ok === "boolean");
     const indexes = complete ? failures.map(([index]) => index)
       : records.map((_,index) => index);
     const now = new Date().toISOString();

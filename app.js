@@ -3267,6 +3267,86 @@ function changePreviousSettings() {
     }
 
 // 計測だけを再送する。在庫データの自動再送は行わない。
+// 失敗明細専用キュー。在庫登録リクエストとは完全に独立して送信する。
+const BATCH_ERROR_PREFIX = "qrBatchErrorV1:";
+let batchErrorFlushBusy_ = false;
+let batchErrorFlushTimer_ = null;
+function queueBatchErrors_(payload, result, transportError) {
+  try {
+    const records = Array.isArray(payload.records) ? payload.records : [];
+    const results = result && Array.isArray(result.results) ? result.results : null;
+    const byIndex = new Map();
+    if (results) results.forEach((item) => {
+      if (item && Number.isInteger(item.index) && item.index >= 0 && item.index < records.length) byIndex.set(item.index, item);
+    });
+    const failures = results ? [...byIndex.entries()].filter(([,item]) => item.ok === false) : [];
+    // 結果不明は「失敗」と断定しない。管理番号ごとに結果不明として記録する。
+    // 結果配列が不完全な場合、未確認レコードは「結果不明」で残す。
+    const complete = results && results.length === records.length && byIndex.size === records.length &&
+      results.every(item => item && typeof item.ok === "boolean");
+    const indexes = complete ? failures.map(([index]) => index)
+      : records.map((_,index) => index);
+    const now = new Date().toISOString();
+    indexes.forEach((index) => {
+      const record = records[index] || {};
+      const item = byIndex.get(index);
+      const eventId = String(payload.sendId || payload.batchId || "") + ":" + index;
+      const event = {
+        eventId, sendId:String(payload.sendId || payload.batchId || ""),
+        recordIndex:index, managementId:String(record.qr || record.managementId || record.id || ""),
+        mode:String(record.mode || ""), user:String(record.user || ""),
+        location:String(record.location || ""), userAgent:String(navigator.userAgent || "").slice(0,500),
+        failedAt:now, status:complete && item && item.ok === false ? "失敗" : "結果不明",
+        message:String(item && (item.message || item.error) || (transportError && transportError.message) || (result && result.message) || "送信結果不明").slice(0,3000)
+      };
+      localStorage.setItem(BATCH_ERROR_PREFIX + eventId, JSON.stringify(event));
+    });
+    scheduleBatchErrorFlush_();
+  } catch (_) { /* 記録失敗が在庫登録結果に影響しない */ }
+}
+function scheduleBatchErrorFlush_() {
+  if (batchErrorFlushTimer_) return;
+  batchErrorFlushTimer_ = setTimeout(() => {
+    batchErrorFlushTimer_ = null;
+    void flushBatchErrors_();
+  }, 5000);
+}
+async function flushBatchErrors_() {
+  if (batchErrorFlushBusy_ || clientInventoryRequests || navigator.onLine === false) return;
+  const entries = [];
+  try {
+    for (let i=0;i<localStorage.length;i++) {
+      const key=localStorage.key(i);
+      if (key && key.startsWith(BATCH_ERROR_PREFIX)) {
+        try { entries.push(JSON.parse(localStorage.getItem(key))); } catch (_) {}
+      }
+    }
+  } catch (_) { return; }
+  if (!entries.length) return;
+  batchErrorFlushBusy_ = true;
+  const events=entries.slice(0,20);
+  const controller=new AbortController();
+  const timeout=setTimeout(() => controller.abort(),10000);
+  try {
+    const response=await fetch(GAS_URL,{
+      method:"POST",headers:{"Content-Type":"text/plain"},signal:controller.signal,
+      body:JSON.stringify({action:"recordBatchErrors",events})
+    });
+    const result=await response.json();
+    if (response.ok && result && result.ok === true && Array.isArray(result.acceptedIds)) {
+      result.acceptedIds.forEach((id) => {
+        const event=events.find(e => e.eventId === id);
+        if (event && localStorage.getItem(BATCH_ERROR_PREFIX + id) === JSON.stringify(event)) {
+          localStorage.removeItem(BATCH_ERROR_PREFIX + id);
+        }
+      });
+    }
+  } catch (_) { /* 次回再送。登録本体は再送しない */ }
+  finally {clearTimeout(timeout);batchErrorFlushBusy_=false;}
+  if (entries.length) batchErrorFlushTimer_=setTimeout(() => {batchErrorFlushTimer_=null;void flushBatchErrors_();},60000);
+}
+window.addEventListener("online",scheduleBatchErrorFlush_);
+scheduleBatchErrorFlush_();
 const CLIENT_METRIC_PREFIX = "qrClientMetricV1:";
 let clientMetricSupported = false;
 let clientMetricBusy = false;
@@ -3346,6 +3426,7 @@ async function measureClientBatch_(payload, send) {
   try {
     const result = await send(body);
     if (result && result.clientTelemetrySupported === true) clientMetricSupported = true;
+    if (result && (result.ok === false || Number(result.failedCount) > 0)) queueBatchErrors_(payload, result, null);
     event.successCount = Number.isFinite(Number(result.successCount)) ? Number(result.successCount) : null;
     event.failedCount = Number.isFinite(Number(result.failedCount)) ? Number(result.failedCount) : null;
     event.outcome = event.failedCount > 0 ? (event.successCount > 0 ? "一部失敗" : "GAS拒否・エラー") : (result.ok === false ? "GAS拒否・エラー" : "成功");
@@ -3354,6 +3435,7 @@ async function measureClientBatch_(payload, send) {
     } catch (_) { event.detail = "失敗詳細の計測不可"; }
     return result;
   } catch (error) {
+    queueBatchErrors_(payload, null, error);
     event.outcome = error && error.name === "AbortError" ? "中断・タイムアウト（登録結果不明）" : "通信・応答エラー（登録結果不明）";
     event.detail = String(error && error.message || error).slice(0,1500);
     throw error;

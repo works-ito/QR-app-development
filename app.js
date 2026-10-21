@@ -3449,7 +3449,77 @@ async function measureClientBatch_(payload, send) {
 }
 window.addEventListener("online", scheduleClientMetrics_);
 
+    // 結果不明送信の保護台帳。自動再送・自動解除はしない。
+    // GASの元送信ID照会が利用可能になるまで「結果不明」を保持する。
+    const UNCERTAIN_BATCH_PREFIX = "qrUncertainBatchV1:";
+    function pendingBatchFingerprint_(record) {
+      const id = String(record.qr || record.itemCode || "").trim().toUpperCase();
+      const mode = String(record.mode || "").trim();
+      return id && mode ? mode + "|" + id : "";
+    }
+    function getUncertainBatches_() {
+      const list = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key || !key.startsWith(UNCERTAIN_BATCH_PREFIX)) continue;
+        try {
+          const entry = JSON.parse(localStorage.getItem(key));
+          if (entry && entry.sendId && Array.isArray(entry.records)) list.push(entry);
+        } catch (_) {
+          // 台帳の破損を見逃して新規登録することは避ける。
+          throw new Error("送信保護記録を読み取れません。管理者に確認してください。");
+        }
+      }
+      return list;
+    }
+    function blockMatchingUncertainBatch_(records) {
+      const requested = new Set(records.map(pendingBatchFingerprint_).filter(Boolean));
+      const match = getUncertainBatches_().find(entry =>
+        entry.records.some(r => requested.has(pendingBatchFingerprint_(r))));
+      if (match) {
+        const error = new Error("過去の送信結果が未確定です。新しい送信IDで同じ作業は登録できません。元の送信ID：" + match.sendId + "。在庫ログと受付ログを確認してください。");
+        error.sendId = match.sendId;
+        throw error;
+      }
+    }
+    function storeUncertainBatch_(payload) {
+      const entry = {
+        sendId:payload.sendId, createdAt:new Date().toISOString(),
+        records:payload.records.map(r => ({
+          qr:String(r.qr || ""), itemCode:String(r.itemCode || ""),
+          mode:String(r.mode || ""), recordType:String(r.recordType || ""),
+          quantity:r.quantity == null ? null : Number(r.quantity),
+          location:String(r.location || ""), user:String(r.user || "")
+        })),
+        status:"結果不明"
+      };
+      // 保存できなければ送信自体を中止する（書込み前に記録）。
+      localStorage.setItem(UNCERTAIN_BATCH_PREFIX + payload.sendId, JSON.stringify(entry));
+      if (!localStorage.getItem(UNCERTAIN_BATCH_PREFIX + payload.sendId)) {
+        throw new Error("端末に送信保護記録を保存できません。送信を中止しました。");
+      }
+    }
+    function clearConfirmedBatch_(sendId) {
+      localStorage.removeItem(UNCERTAIN_BATCH_PREFIX + sendId);
+    }
+    function showUncertainBatchReminder_() {
+      try {
+        const pending = getUncertainBatches_();
+        if (!pending.length) return;
+        const status = document.getElementById("wizardSendStatus");
+        if (status) {
+          status.textContent = "未確定の送信が " + pending.length +
+            " 件あります。元の送信ID：" + pending.map(e => e.sendId).join("、") +
+            "。同一品目・作業区分の再登録を制限しています。";
+          status.classList.add("isError");
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
     function sendBatchRecords(records, options) {
+      blockMatchingUncertainBatch_(records);
       const batchId = createBatchId();
       lastPendingSendId = batchId;
 
@@ -3480,6 +3550,7 @@ window.addEventListener("online", scheduleClientMetrics_);
        * GASで登録済みなのに応答だけ失われた場合の
        * 二重登録を避けるため、結果不明として止める。
        */
+      storeUncertainBatch_(payload);
       return measureClientBatch_(payload, function(clientBody) {
       return fetch(GAS_URL, {
         method:"POST",
@@ -3548,6 +3619,8 @@ window.addEventListener("online", scheduleClientMetrics_);
 
 
 
+        // 完全な明細応答を受信した場合のみ未確定台帳を解除する。
+        clearConfirmedBatch_(batchId);
         return result;
       });
       });
@@ -6638,6 +6711,7 @@ document.addEventListener("visibilitychange", function() {
 renderButtons();
 resetWizard();
 restoreLastSuccessfulSend();
+showUncertainBatchReminder_();
 initializeInventoryDataFoundation();
 startInventoryRefreshTimer();
 startAppVersionCheckTimer();

@@ -3373,14 +3373,16 @@ function saveClientMetric_(event) {
   } catch (_) { /* 保存不可でも在庫送信は妨げない */ }
 }
 function scheduleClientMetrics_() {
-  if (!clientMetricSupported || clientMetricTimer) return;
+  if (clientMetricTimer) return;
   clientMetricTimer = setTimeout(function() {
     clientMetricTimer = null;
     void flushClientMetrics_();
   }, 5000);
 }
 async function flushClientMetrics_() {
-  if (!clientMetricSupported || clientMetricBusy || clientInventoryRequests || navigator.onLine === false) return;
+  // GASの在庫送信応答に計測対応フラグが無くても、診断送信を独立して試行する。
+  // 在庫本体は絶対に再送しない。
+  if (clientMetricBusy || clientInventoryRequests || navigator.onLine === false) return;
   const events = clientMetricEntries_().filter(e => !e.pending || Date.now() - Date.parse(e.startedAt) > 600000).slice(0, 20);
   if (!events.length) return;
   clientMetricBusy = true;

@@ -3479,6 +3479,7 @@ window.addEventListener("online", scheduleClientMetrics_);
       if (match) {
         const error = new Error("過去の送信結果が未確定です。新しい送信IDで同じ作業は登録できません。元の送信ID：" + match.sendId + "。在庫ログと受付ログを確認してください。");
         error.sendId = match.sendId;
+        error.unsentGuard = true;
         throw error;
       }
     }
@@ -3495,9 +3496,17 @@ window.addEventListener("online", scheduleClientMetrics_);
         status:"結果不明"
       };
       // 保存できなければ送信自体を中止する（書込み前に記録）。
-      localStorage.setItem(UNCERTAIN_BATCH_PREFIX + payload.sendId, JSON.stringify(entry));
+      try {
+        localStorage.setItem(UNCERTAIN_BATCH_PREFIX + payload.sendId, JSON.stringify(entry));
+      } catch (_) {
+        const error = new Error("端末に送信保護記録を保存できないため、送信を中止しました。");
+        error.unsentGuard = true;
+        throw error;
+      }
       if (!localStorage.getItem(UNCERTAIN_BATCH_PREFIX + payload.sendId)) {
-        throw new Error("端末に送信保護記録を保存できません。送信を中止しました。");
+        const error = new Error("端末に送信保護記録を保存できません。送信を中止しました。");
+        error.unsentGuard = true;
+        throw error;
       }
     }
     function clearConfirmedBatch_(sendId) {
@@ -4888,6 +4897,11 @@ window.addEventListener("online", scheduleClientMetrics_);
         void refreshInventoryInBackground(successfulRecords);
         await beginWizardPostSendFlow(postSendContext);
       } catch (error) {
+        if (error && error.unsentGuard === true) {
+          setWizardSendStatus("送信を実行していません。\n" + error.message, "isError");
+          scannerBusy = false;
+          return false;
+        }
         const sendId =
           error.sendId ||
           lastPendingSendId ||

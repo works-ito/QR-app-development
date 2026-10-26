@@ -3502,6 +3502,86 @@ window.addEventListener("online", scheduleClientMetrics_);
     function clearConfirmedBatch_(sendId) {
       localStorage.removeItem(UNCERTAIN_BATCH_PREFIX + sendId);
     }
+    // 問い合わせは明示操作時だけ行う。batchWrite は呼ばない。
+    async function inquireUncertainBatch_(sendId, output) {
+      const entry = getUncertainBatches_().find(e => e.sendId === sendId);
+      if (!entry) throw new Error("端末に該当する未確定送信がありません");
+      if (output) output.textContent = "送信ID " + sendId + " を照会中…";
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 15000);
+      try {
+        const response = await fetch(GAS_URL, {
+          method:"POST",
+          headers:{"Content-Type":"text/plain"},
+          signal:controller.signal,
+          body:JSON.stringify({
+            action:"verifyIndividualBatchSaved",
+            sendId:entry.sendId,
+            records:entry.records.map(r => ({
+              qr:r.qr || r.itemCode,
+              mode:r.mode,
+              managementType:r.recordType === "quantity" ? "quantity" : r.managementType || "",
+              recordType:r.recordType
+            }))
+          })
+        });
+        if (!response.ok) throw new Error("照会 HTTP " + response.status);
+        const result = await response.json();
+        const confirmed = result && result.ok === true &&
+          result.savedConfirmed === true &&
+          result.status === "INDIVIDUAL_SAVED_MATCH" &&
+          result.sendId === entry.sendId;
+        if (output) output.textContent = confirmed
+          ? "保存ログとの一致を確認しました（送信ID：" + sendId + "）。端末保護は維持しています。管理者が履歴を確認してください。"
+          : "保存結果は未確定です（送信ID：" + sendId + "）。新規送信は行わず、管理者に確認してください。照会結果：" +
+            String(result && result.status || "UNKNOWN");
+        return result;
+      } catch (error) {
+        if (output) output.textContent = "照会できませんでした。保護は維持します。送信ID：" + sendId + "／" + String(error.message || error);
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+    function renderUncertainBatchInquiry_() {
+      const pending = getUncertainBatches_();
+      let panel = document.getElementById("uncertainBatchInquiryPanel");
+      if (!pending.length) {
+        if (panel) panel.remove();
+        return;
+      }
+      if (!panel) {
+        panel = document.createElement("section");
+        panel.id = "uncertainBatchInquiryPanel";
+        panel.style.cssText = "padding:12px;margin:12px;border:2px solid #c78b30;border-radius:8px";
+        const heading = document.createElement("h2");
+        heading.textContent = "未確定の送信（自動再送なし）";
+        panel.appendChild(heading);
+        const host = document.querySelector("main") || document.body;
+        host.insertBefore(panel, host.firstChild);
+      }
+      panel.querySelectorAll(".uncertainInquiryEntry").forEach(el => el.remove());
+      pending.forEach(entry => {
+        const group = document.createElement("div");
+        group.className = "uncertainInquiryEntry";
+        group.style.cssText = "padding:8px 0;border-top:1px solid #aaa";
+        const label = document.createElement("div");
+        label.textContent = entry.sendId + "／" + entry.records.map(r => (r.qr || r.itemCode) + "（" + r.mode + "）").join("、");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = "元の送信結果を照会";
+        const detail = document.createElement("div");
+        detail.setAttribute("role", "status");
+        button.addEventListener("click", async () => {
+          button.disabled = true;
+          try { await inquireUncertainBatch_(entry.sendId, detail); }
+          catch (error) { console.warn("未確定送信照会失敗", error); }
+          finally { button.disabled = false; }
+        });
+        group.append(label, button, detail);
+        panel.appendChild(group);
+      });
+    }
     function showUncertainBatchReminder_() {
       try {
         const pending = getUncertainBatches_();
@@ -3551,6 +3631,7 @@ window.addEventListener("online", scheduleClientMetrics_);
        * 二重登録を避けるため、結果不明として止める。
        */
       storeUncertainBatch_(payload);
+      renderUncertainBatchInquiry_();
       return measureClientBatch_(payload, function(clientBody) {
       return fetch(GAS_URL, {
         method:"POST",
@@ -3621,6 +3702,7 @@ window.addEventListener("online", scheduleClientMetrics_);
 
         // 完全な明細応答を受信した場合のみ未確定台帳を解除する。
         clearConfirmedBatch_(batchId);
+        renderUncertainBatchInquiry_();
         return result;
       });
       });
@@ -6712,6 +6794,7 @@ renderButtons();
 resetWizard();
 restoreLastSuccessfulSend();
 showUncertainBatchReminder_();
+try { renderUncertainBatchInquiry_(); } catch (error) { console.error("未確定送信一覧表示失敗", error); }
 initializeInventoryDataFoundation();
 startInventoryRefreshTimer();
 startAppVersionCheckTimer();

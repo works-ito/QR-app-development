@@ -3513,6 +3513,30 @@ window.addEventListener("online", scheduleClientMetrics_);
       localStorage.removeItem(UNCERTAIN_BATCH_PREFIX + sendId);
     }
     // 問い合わせは明示操作時だけ行う。batchWrite は呼ばない。
+    // 読取専用照会の表示分類。照会応答で保護を解除しない。
+    function classifyUncertainLookup_(result, sendId, expectedCount) {
+      if (!result || typeof result !== "object" || result.sendId !== sendId) {
+        return {kind:"unknown", message:"照会結果の送信IDを確認できません"};
+      }
+      if (result.ok === true && result.savedConfirmed === true &&
+          result.status === "INDIVIDUAL_SAVED_MATCH") {
+        return {kind:"matched", message:"保存ログとの一致を確認（ただし端末保護は継続）"};
+      }
+      const saved = Number(result.savedCount);
+      const successes = Number(result.successCount);
+      const failures = Number(result.failedCount);
+      if (result.status === "PARTIAL_OR_MISMATCH" ||
+          (Number.isInteger(successes) && Number.isInteger(failures) &&
+           successes >= 0 && failures > 0 && successes + failures === expectedCount) ||
+          (Number.isInteger(saved) && saved > 0 &&
+           Number.isInteger(successes) && saved < successes)) {
+        return {kind:"partial", message:"一部保存または保存内容の不一致が疑われます。個別ログの確認が必要"};
+      }
+      if (result.status === "UNSUPPORTED_OPERATION") {
+        return {kind:"unsupported", message:"この作業区分は自動照合の対象外です。管理者がログを確認してください"};
+      }
+      return {kind:"unknown", message:"保存結果は未確定です。管理者がログを確認してください"};
+    }
     async function inquireUncertainBatch_(sendId, output) {
       const entry = getUncertainBatches_().find(e => e.sendId === sendId);
       if (!entry) throw new Error("端末に該当する未確定送信がありません");
@@ -3537,14 +3561,14 @@ window.addEventListener("online", scheduleClientMetrics_);
         });
         if (!response.ok) throw new Error("照会 HTTP " + response.status);
         const result = await response.json();
-        const confirmed = result && result.ok === true &&
-          result.savedConfirmed === true &&
-          result.status === "INDIVIDUAL_SAVED_MATCH" &&
-          result.sendId === entry.sendId;
-        if (output) output.textContent = confirmed
-          ? "保存ログとの一致を確認しました（送信ID：" + sendId + "）。端末保護は維持しています。管理者が履歴を確認してください。"
-          : "保存結果は未確定です（送信ID：" + sendId + "）。新規送信は行わず、管理者に確認してください。照会結果：" +
-            String(result && result.status || "UNKNOWN");
+        const verdict = classifyUncertainLookup_(result, entry.sendId, entry.records.length);
+        if (output) {
+          output.dataset.lookupKind = verdict.kind;
+          output.textContent = verdict.message +
+            "／送信ID：" + sendId + "／照会状態：" +
+            String(result && result.status || "UNKNOWN") +
+            "。元の送信を自動再送せず、再登録制限も解除しません。";
+        }
         return result;
       } catch (error) {
         if (output) output.textContent = "照会できませんでした。保護は維持します。送信ID：" + sendId + "／" + String(error.message || error);

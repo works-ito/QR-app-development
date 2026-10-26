@@ -3665,7 +3665,9 @@ window.addEventListener("online", scheduleClientMetrics_);
        * 二重登録を避けるため、結果不明として止める。
        */
       storeUncertainBatch_(payload);
-      renderUncertainBatchInquiry_();
+      // 表示だけの失敗で、送信済み・未送信の判定を変えない。
+      try { renderUncertainBatchInquiry_(); }
+      catch (error) { console.warn("未確定送信の画面表示に失敗", error); }
       return measureClientBatch_(payload, function(clientBody) {
       return fetch(GAS_URL, {
         method:"POST",
@@ -3736,7 +3738,8 @@ window.addEventListener("online", scheduleClientMetrics_);
 
         // 完全な明細応答を受信した場合のみ未確定台帳を解除する。
         clearConfirmedBatch_(batchId);
-        renderUncertainBatchInquiry_();
+        try { renderUncertainBatchInquiry_(); }
+        catch (error) { console.warn("送信後の画面更新に失敗", error); }
         return result;
       });
       });

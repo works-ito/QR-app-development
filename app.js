@@ -3488,6 +3488,7 @@ window.addEventListener("online", scheduleClientMetrics_);
         records:payload.records.map(r => ({
           qr:String(r.qr || ""), itemCode:String(r.itemCode || ""),
           mode:String(r.mode || ""), recordType:String(r.recordType || ""),
+          managementType:String(r.managementType || ""),
           quantity:r.quantity == null ? null : Number(r.quantity),
           location:String(r.location || ""), user:String(r.user || "")
         })),

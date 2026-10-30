@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>預かり品管理｜開発版</title>
+<style>
+:root{font-family:system-ui,"Noto Sans JP",sans-serif;color:#172b37;background:#f1f5f7}*{box-sizing:border-box}
+body{margin:0}.app{max-width:650px;margin:auto;padding:16px 14px 45px}
+h1{font-size:22px;margin:10px 0}h2{font-size:18px}p{line-height:1.5}
+.card{background:white;border:1px solid #d5dee5;border-radius:13px;padding:17px;margin:12px 0}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+button{font:inherit;background:#1458aa;color:white;border:0;border-radius:9px;padding:13px;cursor:pointer}
+button:disabled{opacity:.48;cursor:not-allowed}.secondary{background:#e7edf4;color:#172b37}
+.grid button{min-height:62px}.hidden{display:none!important}
+label{display:block;font-weight:650;margin:12px 0 5px}
+input,select,textarea{font:inherit;width:100%;padding:12px;background:white;border:1px solid #8799a5;border-radius:8px}
+input[type=file]{padding:10px}input[type=number]{max-width:150px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.hint{font-size:13px;color:#506273}.warning{background:#fff5d9;padding:11px;border-radius:9px;font-size:14px}
+.item{border:1px solid #d2dce4;border-radius:9px;padding:12px;margin-top:9px}
+.item button{margin-top:8px}.pill{font-size:12px;background:#e9edf0;padding:4px 8px;border-radius:10px}
+img.preview{width:96px;height:96px;object-fit:cover;border-radius:6px;margin:7px 6px 0 0}
+</style></head><body><main class="app">
+<a href="./index.html">← 在庫管理の初期画面へ戻る</a>
+<h1>預かり品管理 <span class="pill">三郷・開発版</span></h1>
+<p class="warning">画面動作確認用です。GAS・スプレッドシート・印刷機には未接続のため、保存や印刷はできません。</p>
+<div class="grid"><button id="goIn">入庫</button><button id="goOut">出庫</button><button id="goList">一覧</button></div>
+<section id="inPanel" class="card hidden"><h2>預かり品 入庫</h2>
+<form id="inForm">
+<label for="customer">顧客</label><select id="customer" required><option value="">選択してください</option><option value="__other">その他（入力）</option></select>
+<div id="otherCustomerBox" class="hidden"><label for="otherCustomer">顧客名</label><input id="otherCustomer"></div>
+<label for="site">現場名</label><input id="site" placeholder="不明なら空欄で登録可能">
+<label for="item">預かり品名</label><input id="item" required placeholder="例：足場金物、養生材">
+<label for="kind">保管形態</label><select id="kind"><option value="mesh">メッシュパレット</option><option value="other">その他（パレット外）</option></select>
+<label for="qty">数量（整数）</label><div class="row"><input id="qty" type="number" min="1" step="1" value="1" required><span id="unitCaption">台</span></div>
+<div id="unitBox" class="hidden"><label for="unit">単位</label><select id="unit"><option value="点">点</option><option value="本">本</option><option value="台">台</option><option value="式">式</option><option value="束">束</option></select></div>
+<label for="photos">入庫写真（必須・最大6枚）</label><input id="photos" type="file" accept="image/*" capture="environment" multiple required><div id="preview"></div>
+<label for="note">備考（任意）</label><textarea id="note" rows="2" placeholder="特徴や状態など"></textarea>
+<button type="submit">入力内容を確認</button></form>
+<div id="confirm" class="hidden"><h2>確認</h2><div id="confirmation"></div><p class="warning">現在は画面検証のみです。登録処理は接続後に有効化します。</p><button disabled>スプシ登録＋ラベル発行（未接続）</button><button class="secondary" id="backEdit" type="button">入力へ戻る</button></div>
+</section>
+<section id="outPanel" class="card hidden"><h2>預かり品 出庫</h2><p class="hint">顧客 → 現場 → 保管中の品物の順で選択します。</p>
+<label for="outCustomer">顧客</label><select id="outCustomer"><option value="">保管中の顧客を読み込む</option></select>
+<label for="outSite">現場</label><select id="outSite" disabled><option>顧客選択後に表示</option></select>
+<div id="outItems" class="item">データ連携後、写真・品名・残数を表示します。</div>
+<button disabled>出庫を登録（未接続）</button></section>
+<section id="listPanel" class="card hidden"><h2>現在の預かり品</h2><p>顧客別・現場別の検索と写真確認を実装予定。データ連携後に表示します。</p></section>
+</main><script src="./azukari.js?v=1"></script></body></html>

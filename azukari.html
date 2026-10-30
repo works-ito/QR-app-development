@@ -1,23 +1,31 @@
 <!DOCTYPE html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>預かり品管理｜開発版</title>
+<link rel="stylesheet" href="./styles.css?v=16">
 <style>
-:root{font-family:system-ui,"Noto Sans JP",sans-serif;color:#172b37;background:#f1f5f7}*{box-sizing:border-box}
-body{margin:0}.app{max-width:650px;margin:auto;padding:16px 14px 45px}
-h1{font-size:22px;margin:10px 0}h2{font-size:18px}p{line-height:1.5}
-.card{background:white;border:1px solid #d5dee5;border-radius:13px;padding:17px;margin:12px 0}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-button{font:inherit;background:#1458aa;color:white;border:0;border-radius:9px;padding:13px;cursor:pointer}
-button:disabled{opacity:.48;cursor:not-allowed}.secondary{background:#e7edf4;color:#172b37}
-.grid button{min-height:62px}.hidden{display:none!important}
-label{display:block;font-weight:650;margin:12px 0 5px}
-input,select,textarea{font:inherit;width:100%;padding:12px;background:white;border:1px solid #8799a5;border-radius:8px}
-input[type=file]{padding:10px}input[type=number]{max-width:150px}
+body{background:var(--background);color:var(--ink)}
+.app{max-width:430px;min-height:100dvh;padding: max(12px,env(safe-area-inset-top)) 12px max(16px,env(safe-area-inset-bottom))}
+.app>a{display:inline-block;color:var(--blue-dark);font-size:14px;font-weight:700;margin:8px 0 12px;text-decoration:none}
+h1{font-size:20px;font-weight:800;margin:4px 0 14px}
+h2{font-size:23px;font-weight:900;line-height:1.3;margin:0 0 12px}
+.card{background:var(--surface);border:1px solid #e1e6ee;border-radius:16px;padding:16px 14px 14px;margin:12px 0;box-shadow:var(--shadow)}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+button{font:inherit;min-height:48px;border:2px solid #bdd4f2;border-radius:12px;padding:9px;background:#f8fbff;color:#153c68;font-weight:900;touch-action:manipulation}
+button:disabled{opacity:.48;cursor:not-allowed}
+button[type=submit]{background:var(--blue);color:#fff;border-color:var(--blue);width:100%;margin-top:15px}
+.secondary{background:#f5f6f8;color:#4c5668;border-color:var(--line)}
+.grid button{min-height:66px;font-size:17px}
+.hidden{display:none!important}
+label{display:block;font-weight:800;font-size:14px;margin:13px 0 5px;color:var(--ink)}
+input,select,textarea{font:inherit;font-size:16px;width:100%;padding:12px;background:#fff;border:1px solid #adb9ca;border-radius:10px;color:var(--ink)}
+input[type=file]{padding:10px}input[type=number]{max-width:145px}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.hint{font-size:13px;color:#506273}.warning{background:#fff5d9;padding:11px;border-radius:9px;font-size:14px}
-.item{border:1px solid #d2dce4;border-radius:9px;padding:12px;margin-top:9px}
-.item button{margin-top:8px}.pill{font-size:12px;background:#e9edf0;padding:4px 8px;border-radius:10px}
-img.preview{width:96px;height:96px;object-fit:cover;border-radius:6px;margin:7px 6px 0 0}
+.hint{font-size:13px;color:var(--muted);line-height:1.5}
+.warning{background:var(--amber-pale);border:1px solid #ead29e;color:#865700;padding:11px;border-radius:10px;font-size:13px;line-height:1.5}
+.item{border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:10px}
+.item button{margin-top:8px}
+.pill{font-size:12px;background:var(--blue-pale);color:#145aa8;padding:5px 9px;border:1px solid #c8ddfa;border-radius:999px;vertical-align:middle}
+img.preview{width:96px;height:96px;object-fit:cover;border-radius:8px;margin:7px 6px 0 0}
 </style></head><body><main class="app">
 <a href="./index.html">← 在庫管理の初期画面へ戻る</a>
 <h1>預かり品管理 <span class="pill">三郷・開発版</span></h1>

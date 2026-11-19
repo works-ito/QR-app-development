@@ -18,7 +18,7 @@ function testRoot_() {
   return DriveApp.getFolderById(id);
 }
 function testSession_(sessionId) {
-  if (!/^[0-9a-f]{8}-[0-9a-f-]{27,40}$/i.test(String(sessionId))) {
+  if (!/^[A-Za-z0-9_-]{10,128}$/.test(String(sessionId))) {
     throw new Error('不正なセッションID');
   }
   const rootId = testRoot_().getId();

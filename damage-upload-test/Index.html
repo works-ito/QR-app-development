@@ -1,0 +1,40 @@
+<!doctype html><html><head><base target="_top"><meta name="viewport" content="width=device-width,initial-scale=1"><meta charset="utf-8"><title>WORKS 写真保存テスト</title><style>
+*{box-sizing:border-box}body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#eef3f8;color:#172b43}header{background:#1559a5;color:#fff;padding:18px}main{padding:15px;max-width:650px;margin:auto}.panel{background:white;padding:17px;border-radius:13px;margin:12px 0}button{padding:12px 15px;border:0;background:#1559a5;border-radius:9px;color:white;font-size:16px;margin:4px 5px 4px 0}button:disabled{opacity:.4}input{width:100%;margin:8px 0 15px}p{line-height:1.7}.hint{font-size:13px;color:#5c6c80}#log{white-space:pre-wrap;background:#e9eff6;padding:12px;border-radius:8px;max-height:250px;overflow:auto}progress{width:100%;height:22px}a{word-break:break-all}
+</style></head><body><header><b>WORKS / Driveへの写真保存テスト</b></header><main>
+<section class="panel"><p>これは通信と保存の検証用です。<b>実際の顧客情報や伝票はアップロードしないでください。</b></p>
+<button id="create">① テスト保存先を作成</button><p class="hint">テスト用フォルダがGoogle Driveに作成されます。</p>
+<label>② 伝票写真（JPEG、1枚）<input id="ticket" type="file" accept="image/jpeg"></label>
+<label>③ 破損写真（JPEG、最大49枚）<input id="damage" type="file" accept="image/jpeg" multiple></label>
+<button id="send" disabled>④ 送信開始（手動）</button><button id="status" disabled>保存済みを照会</button>
+<p><label>途中失敗から再開する場合のセッションID<input id="resumeId" placeholder="前回のIDを貼り付け"></label><button id="resume">保存済みを確認して再開準備</button></p>
+<p class="hint">通信エラー時に自動再送しません。写真を再選択したうえで、必ず手動で送信を押してください。同じ番号・同じサイズは保存済みとして扱います。</p>
+<div id="session"></div><progress id="progress" max="50" value="0"></progress><div id="log" role="status">テスト準備中</div></section></main>
+<script>
+'use strict';
+const $=x=>document.getElementById(x);let sid='',busy=false;
+function log(t){$('log').textContent+='\n'+t;$('log').scrollTop=$('log').scrollHeight}
+function call(fn,...args){return new Promise((resolve,reject)=>google.script.run.withSuccessHandler(resolve).withFailureHandler(e=>reject(Error(e?.message||String(e))))[fn](...args))}
+function buttons(){const ready=!!sid&&!busy;$('send').disabled=!ready;$('status').disabled=!ready;$('create').disabled=busy;$('resume').disabled=busy}
+function show(s){sid=s.sessionId;$('resumeId').value=sid;$('session').replaceChildren();let p=document.createElement('p');p.textContent='セッションID：'+sid;let a=document.createElement('a');a.href=s.folderUrl;a.target='_blank';a.rel='noopener';a.textContent='保存先フォルダを開く';$('session').append(p,a);$('progress').value=s.saved?.length||0;buttons()}
+async function status(){if(!sid)throw Error('保存先を作成してください');const s=await call('getTestStatus',sid);show(s);log('保存済み '+s.saved.length+'枚: '+s.saved.map(x=>x.index).join(','));return s}
+async function lockTask(fn){if(busy)return;busy=true;buttons();try{await fn()}catch(e){log('エラー: '+e.message)}finally{busy=false;buttons()}}
+$('create').onclick=()=>lockTask(async()=>{const s=await call('startTestSession');show(s);log('テスト保存先を作成しました')});
+$('resume').onclick=()=>lockTask(async()=>{sid=$('resumeId').value.trim();await status()});
+$('status').onclick=()=>lockTask(status);
+async function base64(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(',')[1]);r.onerror=()=>reject(Error('画像読み込みに失敗'));r.readAsDataURL(file)})}
+$('send').onclick=()=>lockTask(async()=>{
+ const ticket=$('ticket').files[0], damage=Array.from($('damage').files);
+ if(!ticket){log('伝票を1枚選択してください');return}
+ if(damage.length>49){log('破損写真は49枚までです');return}
+ const files=[ticket,...damage],s=await status(),saved=new Map(s.saved.map(x=>[x.index,x]));
+ for(let i=0;i<files.length;i++){
+   const file=files[i];if(file.type!=='image/jpeg'||file.size>5*1024*1024){log('JPEG形式・5MB以下にしてください: '+(i+1));return}
+   if(saved.has(i)){if(saved.get(i).size!==file.size){log('画像'+i+' の保存済みサイズが一致しません。停止します');return}log('写真'+i+' は保存済み。スキップ');continue}
+   log('写真'+i+' を送信中…');const b64=await base64(file);
+   await call('uploadTestPhoto',sid,i,b64,file.size);
+   $('progress').value=i+1;log('写真'+i+' を保存しました');
+ }
+ await status();log('全ての指定写真の送信処理が完了しました');
+});
+buttons();
+</script></body></html>

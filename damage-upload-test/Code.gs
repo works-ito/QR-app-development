@@ -61,7 +61,7 @@ function getTestStatus(sessionId) {
   return {sessionId, folderUrl: folder.getUrl(), saved: listSaved_(folder)};
 }
 function uploadTestPhoto(sessionId, index, base64, expectedBytes) {
-  if (typeof base64 !== 'string' || base64.length > Math.ceil(MAX_PHOTO_BYTES * 4 / 3) + 16) {
+  if (typeof base64 !== 'string' || base64.length > Math.ceil(MAX_PHOTO_BYTES_ * 4 / 3) + 16) {
     throw new Error('画像データが大きすぎるか不正です');
   }
   if (!Number.isInteger(expectedBytes) || expectedBytes < 1 || expectedBytes > MAX_PHOTO_BYTES_) {

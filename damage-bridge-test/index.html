@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>WORKS GAS通信方式 検証</title>
+<style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f3f6fa;color:#16253b;margin:0}header{background:#1558a5;color:white;padding:18px}main{max-width:680px;margin:auto;padding:16px}.card{background:white;padding:17px;border-radius:14px;margin:12px 0;box-shadow:0 2px 8px #0001}button{background:#1558a5;color:white;border:0;border-radius:10px;padding:13px;font-size:16px;font-weight:bold;width:100%}.status{white-space:pre-wrap;overflow-wrap:anywhere;background:#edf2f9;border-radius:8px;padding:12px;min-height:50px;font-size:14px;line-height:1.6}.muted{font-size:13px;color:#5e6d80;line-height:1.7}iframe{width:100%;height:260px;border:1px solid #bdc9d7;border-radius:8px}</style></head><body>
+<header><small>WORKS / 技術検証</small><h2>GitHub Pages → GAS 通信確認</h2></header><main>
+<section class="card"><p class="muted">これは保存・撮影を行わない読み取り専用の診断です。既存アプリやGoogle Driveのデータは変更しません。</p>
+<button id="test">① 通信確認を開始</button><p id="result" class="status">未実行</p>
+<p class="muted">「Failed to fetch」等の場合、直接通信の制限が疑われます。これはiPhoneのカメラ権限とは別の問題です。</p></section>
+<section class="card"><h3>② GAS画面の埋め込み確認</h3><button id="frameButton">埋め込み画面を表示</button><p id="frameStatus" class="status">未実行</p><div id="frameBox"></div>
+<p class="muted">表示できても、認証・写真送信が可能と確定するわけではありません。画面が真っ白・ログイン要求・ブロック表示になった場合は、そのまま教えてください。</p></section>
+</main><script>
+const gas='https://script.google.com/a/macros/works-rental.co.jp/s/AKfycbwJOcM-09S51ItbVrodWIcqE_2e11YaBD8-wvXPoNRBH0li1-UeCOKujMzFxVeINrgiaA/exec';
+document.getElementById('test').onclick=async()=>{
+const out=document.getElementById('result');out.textContent='接続確認中…';
+try{const r=await fetch(gas,{method:'GET',credentials:'include',redirect:'follow',cache:'no-store'});
+out.textContent='HTTP '+r.status+' / type='+r.type+'\nレスポンスの読み取り：'+(r.ok?'可能':'HTTPエラー')+'\n注意：画面取得が可能でも、写真送信には別途認証・権限検証が必要です。';
+}catch(e){out.textContent='直接通信の読み取りに失敗\n'+(e.name||'Error')+': '+e.message+'\n※CORS・認証・ネットワークなどの原因はこの結果だけでは断定できません。';}
+};
+document.getElementById('frameButton').onclick=()=>{
+const box=document.getElementById('frameBox');box.replaceChildren();const frame=document.createElement('iframe');
+frame.src=gas;frame.title='GAS埋め込み検証';frame.onload=()=>document.getElementById('frameStatus').textContent='iframeの読み込みイベントを確認。中身が表示されているか目視してください（成功の確証ではありません）。';
+frame.onerror=()=>document.getElementById('frameStatus').textContent='iframe読み込みエラー';
+box.append(frame);document.getElementById('frameStatus').textContent='読み込み中…';
+};
+</script></body></html>

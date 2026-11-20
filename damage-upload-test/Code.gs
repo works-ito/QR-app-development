@@ -8,6 +8,20 @@ const TEST_PREFIX_ = 'WORKS_DAMAGE_TEST_';
 const MAX_PHOTOS_ = 50;
 const MAX_PHOTO_BYTES_ = 5 * 1024 * 1024;
 
+/**
+ * GitHub Pages からの接続確認専用。
+ * テスト用フォルダや写真には触れず、通信成功の応答だけを返す。
+ * 本番での写真送信には別途本人確認とアクセス制御が必要。
+ */
+function doPost(e) {
+  let data;
+  try { data = JSON.parse(e && e.postData && e.postData.contents || '{}'); }
+  catch (err) { return ContentService.createTextOutput(JSON.stringify({ok:false,error:'INVALID_JSON'})).setMimeType(ContentService.MimeType.JSON); }
+  if (data.action !== 'ping') {
+    return ContentService.createTextOutput(JSON.stringify({ok:false,error:'UNSUPPORTED_ACTION'})).setMimeType(ContentService.MimeType.JSON);
+  }
+  return ContentService.createTextOutput(JSON.stringify({ok:true,action:'ping',app:'WORKS_DAMAGE_TEST'})).setMimeType(ContentService.MimeType.JSON);
+}
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('WORKS 写真保存テスト');

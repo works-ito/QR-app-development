@@ -148,7 +148,17 @@ function startOrganized_(customer,returnDate) {
   try{
     let folder=testRoot_();
     for(const segment of [d.slice(0,4),d.slice(5,7),c,d]) folder=childFolder_(folder,segment);
-    const token=Utilities.getUuid().replace(/-/g,'').slice(0,20);
+    let token;
+    // 同じ返却日フォルダで短縮識別子が衝突しないよう確認
+    for(let tries=0;tries<20;tries++){
+      const candidate=Utilities.getUuid().replace(/-/g,'').slice(0,20);
+      const prefix=candidate.slice(0,8)+'_';
+      const files=folder.getFiles();
+      let collision=false;
+      while(files.hasNext())if(files.next().getName().startsWith(prefix)){collision=true;break}
+      if(!collision){token=candidate;break}
+    }
+    if(!token)throw Error('送信識別子を確保できません');
     return {sessionId:folder.getId(),token,folderUrl:folder.getUrl(),saved:[]};
   }finally{lock.releaseLock()}
 }
@@ -171,9 +181,9 @@ function organizedToken_(token) {
   if(!/^[a-f0-9]{20}$/.test(t))throw Error('送信識別子が不正です');
   return t;
 }
-function organizedName_(token,index) {return organizedToken_(token)+'_'+photoName_(index)}
+function organizedName_(token,index) {return organizedToken_(token).slice(0,8)+'_'+photoName_(index)}
 function organizedSaved_(folder,token) {
-  const prefix=organizedToken_(token)+'_';
+  const prefix=organizedToken_(token).slice(0,8)+'_';
   const files=folder.getFiles(),out=[];
   while(files.hasNext()){
     const f=files.next(),name=f.getName();

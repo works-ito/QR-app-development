@@ -72,8 +72,8 @@ function renderCustomers(){
   found.forEach(c=>{
     const btn=document.createElement('button');btn.type='button';btn.className='secondary';
     btn.style.cssText='display:block;width:100%;text-align:left;margin:3px 0;font-size:15px';
-    btn.textContent=c.name+(c.short&&c.short!==c.name?'（'+c.short+'）':'');
-    btn.onclick=()=>{selectedCustomer=c.name;$('customerSearch').value=c.name;$('customerSelected').textContent='選択中：'+c.name;renderCustomers()};
+    btn.textContent=c.short||c.name;
+    btn.onclick=()=>{selectedCustomer=c.short||c.name;$('customerSearch').value=c.short||c.name;$('customerSelected').textContent='選択中：'+(c.short||c.name);renderCustomers()};
     target.append(btn);
   });
 }

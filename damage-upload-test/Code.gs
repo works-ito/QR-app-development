@@ -34,6 +34,7 @@ function doPost(e) {
       const r = uploadTestPhoto(data.sessionId,Number(data.index),data.base64,Number(data.expectedBytes));
       return postReply_({ok:true,...r});
     }
+    if (data.action === 'customers') return postReply_({ok:true,customers:customerMaster_()});
     if (data.action === 'organizedStart') return postReply_({ok:true,...startOrganized_(data.customer,data.returnDate)});
     if (data.action === 'organizedStatus') return postReply_({ok:true,...organizedStatus_(data.sessionId,data.token)});
     if (data.action === 'organizedUpload') return postReply_({ok:true,...organizedUpload_(data.sessionId,data.token,Number(data.index),data.base64,Number(data.expectedBytes))});
@@ -216,4 +217,13 @@ function organizedUpload_(sessionId,token,index,base64,expectedBytes) {
     const file=f.createFile(Utilities.newBlob(bytes,'image/jpeg',filename));
     return {index,saved:true,alreadySaved:false,fileId:file.getId()};
   }finally{lock.releaseLock()}
+}
+
+/** 既存在庫管理の取引先マスタを読み取り専用で取得する。A=正式名 B=略称 C=半角カナ */
+function customerMaster_() {
+  const id='1dNcTslp1MgJ5ro_58qw5YcbzR4aVN33N5DMXK_gX8ao';
+  const sh=SpreadsheetApp.openById(id).getSheetByName('取引先マスタ');
+  if(!sh)throw Error('取引先マスタが見つかりません');
+  const rows=sh.getRange(2,1,Math.max(1,sh.getLastRow()-1),3).getDisplayValues();
+  return rows.filter(r=>r[0]&&r[0].trim()).map(r=>({name:r[0].trim(),short:r[1].trim(),kana:r[2].trim()}));
 }

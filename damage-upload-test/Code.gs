@@ -13,14 +13,31 @@ const MAX_PHOTO_BYTES_ = 5 * 1024 * 1024;
  * テスト用フォルダや写真には触れず、通信成功の応答だけを返す。
  * 本番での写真送信には別途本人確認とアクセス制御が必要。
  */
+function postReply_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
 function doPost(e) {
-  let data;
-  try { data = JSON.parse(e && e.postData && e.postData.contents || '{}'); }
-  catch (err) { return ContentService.createTextOutput(JSON.stringify({ok:false,error:'INVALID_JSON'})).setMimeType(ContentService.MimeType.JSON); }
-  if (data.action !== 'ping') {
-    return ContentService.createTextOutput(JSON.stringify({ok:false,error:'UNSUPPORTED_ACTION'})).setMimeType(ContentService.MimeType.JSON);
+  try {
+    const raw = e && e.postData && e.postData.contents || '';
+    if (raw.length > 8 * 1024 * 1024) return postReply_({ok:false,error:'PAYLOAD_TOO_LARGE'});
+    const data = JSON.parse(raw || '{}');
+    if (data.action === 'ping') return postReply_({ok:true,action:'ping',app:'WORKS_DAMAGE_TEST'});
+    if (data.action === 'start') {
+      const r = startTestSession();
+      return postReply_({ok:true,sessionId:r.sessionId,folderUrl:r.folderUrl,saved:r.saved});
+    }
+    if (data.action === 'status') {
+      const r = getTestStatus(data.sessionId);
+      return postReply_({ok:true,sessionId:r.sessionId,folderUrl:r.folderUrl,saved:r.saved});
+    }
+    if (data.action === 'upload') {
+      const r = uploadTestPhoto(data.sessionId,Number(data.index),data.base64,Number(data.expectedBytes));
+      return postReply_({ok:true,...r});
+    }
+    return postReply_({ok:false,error:'UNSUPPORTED_ACTION'});
+  } catch(err) {
+    return postReply_({ok:false,error:String(err && err.message || err)});
   }
-  return ContentService.createTextOutput(JSON.stringify({ok:true,action:'ping',app:'WORKS_DAMAGE_TEST'})).setMimeType(ContentService.MimeType.JSON);
 }
 function doGet() {
   return HtmlService.createHtmlOutputFromFile('Index')

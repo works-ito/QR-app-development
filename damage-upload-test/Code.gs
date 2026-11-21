@@ -34,6 +34,9 @@ function doPost(e) {
       const r = uploadTestPhoto(data.sessionId,Number(data.index),data.base64,Number(data.expectedBytes));
       return postReply_({ok:true,...r});
     }
+    if (data.action === 'organizedStart') return postReply_({ok:true,...startOrganized_(data.customer,data.returnDate)});
+    if (data.action === 'organizedStatus') return postReply_({ok:true,...organizedStatus_(data.sessionId,data.token)});
+    if (data.action === 'organizedUpload') return postReply_({ok:true,...organizedUpload_(data.sessionId,data.token,Number(data.index),data.base64,Number(data.expectedBytes))});
     return postReply_({ok:false,error:'UNSUPPORTED_ACTION'});
   } catch(err) {
     return postReply_({ok:false,error:String(err && err.message || err)});
@@ -120,4 +123,87 @@ function uploadTestPhoto(sessionId, index, base64, expectedBytes) {
     const file = folder.createFile(blob);
     return {index, saved:true, alreadySaved:false, fileId:file.getId(), savedCount:listSaved_(folder).length};
   } finally { lock.releaseLock(); }
+}
+
+/** フォルダ振分テスト: TEST_ROOT_FOLDER_ID/年/月/顧客名/返却日 */
+function cleanCustomer_(name) {
+  const s=String(name||'').normalize('NFKC').trim();
+  if (!s || s.length>80 || /[\\/<>:"|?*\x00-\x1f]/.test(s) || s==='.' || s==='..') throw Error('取引先名が不正です');
+  return s;
+}
+function validDate_(value) {
+  const s=String(value||'');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(s)) throw Error('返却日が不正です');
+  const d=new Date(s+'T00:00:00Z');
+  if(isNaN(d.getTime())||d.toISOString().slice(0,10)!==s) throw Error('存在しない返却日です');
+  return s;
+}
+function childFolder_(parent,name) {
+  const it=parent.getFoldersByName(name);
+  return it.hasNext()?it.next():parent.createFolder(name);
+}
+function startOrganized_(customer,returnDate) {
+  const c=cleanCustomer_(customer),d=validDate_(returnDate);
+  const lock=LockService.getScriptLock();lock.waitLock(25000);
+  try{
+    let folder=testRoot_();
+    for(const segment of [d.slice(0,4),d.slice(5,7),c,d]) folder=childFolder_(folder,segment);
+    const token=Utilities.getUuid().replace(/-/g,'').slice(0,20);
+    return {sessionId:folder.getId(),token,folderUrl:folder.getUrl(),saved:[]};
+  }finally{lock.releaseLock()}
+}
+function organizedFolder_(sessionId) {
+  if(!/^[A-Za-z0-9_-]{10,128}$/.test(String(sessionId)))throw Error('不正なフォルダID');
+  const f=DriveApp.getFolderById(sessionId);
+  const d=validDate_(f.getName());
+  let current=f;
+  for(const expected of [null,d.slice(5,7),d.slice(0,4),testRoot_().getName()]){
+    const parents=current.getParents();
+    if(!parents.hasNext())throw Error('対象フォルダが管理外です');
+    current=parents.next();
+    if(expected!==null && current.getName()!==expected)throw Error('フォルダ階層が不正です');
+  }
+  if(current.getId()!==testRoot_().getId())throw Error('対象フォルダが管理外です');
+  return f;
+}
+function organizedToken_(token) {
+  const t=String(token||'');
+  if(!/^[a-f0-9]{20}$/.test(t))throw Error('送信識別子が不正です');
+  return t;
+}
+function organizedName_(token,index) {return organizedToken_(token)+'_'+photoName_(index)}
+function organizedSaved_(folder,token) {
+  const prefix=organizedToken_(token)+'_';
+  const files=folder.getFiles(),out=[];
+  while(files.hasNext()){
+    const f=files.next(),name=f.getName();
+    if(name.startsWith(prefix)){
+      const m=name.slice(prefix.length).match(/^(\d{3})_(伝票|破損)\.jpg$/);
+      if(m)out.push({index:Number(m[1]),name,size:f.getSize()});
+    }
+  }
+  return out.sort((a,b)=>a.index-b.index);
+}
+function organizedStatus_(sessionId,token) {
+  const f=organizedFolder_(sessionId);
+  return {sessionId,token,folderUrl:f.getUrl(),saved:organizedSaved_(f,token)};
+}
+function organizedUpload_(sessionId,token,index,base64,expectedBytes) {
+  const filename=organizedName_(token,index);
+  if(typeof base64!=='string'||base64.length>Math.ceil(MAX_PHOTO_BYTES_*4/3)+16)throw Error('画像が大きすぎます');
+  if(!Number.isInteger(expectedBytes)||expectedBytes<4||expectedBytes>MAX_PHOTO_BYTES_)throw Error('画像サイズが不正です');
+  const bytes=Utilities.base64Decode(base64);
+  if(bytes.length!==expectedBytes)throw Error('画像サイズが一致しません');
+  if((bytes[0]&255)!==255||(bytes[1]&255)!==216||(bytes[bytes.length-2]&255)!==255||(bytes[bytes.length-1]&255)!==217)throw Error('JPEG形式ではありません');
+  const lock=LockService.getScriptLock();lock.waitLock(25000);
+  try{
+    const f=organizedFolder_(sessionId),existing=f.getFilesByName(filename);
+    if(existing.hasNext()){
+      const file=existing.next();
+      if(file.getSize()!==expectedBytes)throw Error('同番号に異なるサイズの写真が保存されています');
+      return {index,saved:true,alreadySaved:true,fileId:file.getId()};
+    }
+    const file=f.createFile(Utilities.newBlob(bytes,'image/jpeg',filename));
+    return {index,saved:true,alreadySaved:false,fileId:file.getId()};
+  }finally{lock.releaseLock()}
 }

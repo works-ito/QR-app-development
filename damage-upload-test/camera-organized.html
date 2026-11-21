@@ -54,7 +54,8 @@ $('closeLightbox').onclick=()=>$('lightbox').close();$('lightbox').addEventListe
 $('saveImage').onclick=()=>{if(selected===null)return;const a=document.createElement('a');a.href=photos[selected].url;a.download='works-damage-test-'+String(selected+1).padStart(2,'0')+'.jpg';a.click()};
 // 送信テスト: 撮影コードv0.7を維持し、POST保存のみ追加
 const UPLOAD_GAS='https://script.google.com/macros/s/AKfycbwJOcM-09S51ItbVrodWIcqE_2e11YaBD8-wvXPoNRBH0li1-UeCOKujMzFxVeINrgiaA/exec';
-let uploadSession=null,uploadToken=null,uploadRunning=false,uploadNext=0;\n$('returnDate').value=new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+let uploadSession=null,uploadToken=null,uploadRunning=false,uploadNext=0;
+$('returnDate').value=new Date(Date.now()+9*3600000).toISOString().slice(0,10);
 const uploadInfo=$('uploadInfo');
 function uploadMsg(t){uploadInfo.textContent=t}
 async function api(payload){

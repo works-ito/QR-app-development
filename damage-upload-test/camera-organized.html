@@ -86,7 +86,9 @@ $('uploadStart').onclick=async()=>{
   try{
     if(!uploadSession){
       uploadMsg('テスト用フォルダを作成中…');
-      const customer=$('customerName').value.trim(),returnDate=$('returnDate').value;\n      if(!customer||!returnDate)throw Error('取引先名と返却日を入力してください');\n      const start=await api({action:'organizedStart',customer,returnDate});
+      const customer=$('customerName').value.trim(),returnDate=$('returnDate').value;
+      if(!customer||!returnDate)throw Error('取引先名と返却日を入力してください');
+      const start=await api({action:'organizedStart',customer,returnDate});
       uploadSession=start.sessionId;uploadToken=start.token;uploadNext=0;$('customerName').disabled=true;$('returnDate').disabled=true;$('checkSaved').disabled=false;
     }
     const images=[ticket,...photos];

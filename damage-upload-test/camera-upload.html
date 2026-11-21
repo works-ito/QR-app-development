@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#1659a4"><title>WORKS 返却伝票＋破損写真 撮影テスト</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f2f5fa;color:#15263b;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP",sans-serif}header{background:#1558a5;color:#fff;padding:17px}header h1{font-size:20px;margin:4px 0}main{max-width:720px;margin:auto;padding:14px}.card{background:white;border-radius:16px;padding:16px;margin-bottom:13px;box-shadow:0 2px 10px #1232 08}.steps{display:flex;gap:6px;justify-content:space-between;margin:0 0 13px}.steps span{font-size:12px;border-radius:9px;padding:9px 6px;text-align:center;flex:1;background:#e1e8f1;color:#536579}.steps span.current{background:#1558a5;color:white;font-weight:700}.muted{font-size:13px;color:#5d6d82;line-height:1.65}.line{display:flex;align-items:center;justify-content:space-between;gap:9px}.actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px}.actions button{flex:1}button{border:0;border-radius:10px;background:#1558a5;color:white;font-size:16px;font-weight:700;min-height:48px;padding:10px 13px;cursor:pointer}button.secondary{background:#e7eef9;color:#15518f}button.warn{background:#fce8e8;color:#a52222}button:disabled{opacity:.45}.hidden{display:none!important}.view{background:#090d15;border-radius:12px;overflow:hidden}.viewport{position:relative;display:block;width:100%;height:0;padding-bottom:133.333333%;overflow:hidden;background:#080b11}.viewport.damage{padding-bottom:75%}.viewport .hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}.viewport video{display:block;position:absolute;inset:0;width:100%!important;height:100%!important;min-width:100%;min-height:100%;object-fit:cover;max-width:none;max-height:none}.camera-actions{background:#17202a;color:white;padding:12px;display:flex;gap:9px;justify-content:space-between;align-items:center}.shutter{width:72px;height:72px;border-radius:50%;background:white;border:5px solid #ddd;box-shadow:inset 0 0 0 3px #303640;flex:0 0 72px}.camera-actions button.secondary{min-height:43px}.hint{color:#a9b4c2;font-size:12px;text-align:center;padding:12px}.status{padding:12px;border-radius:10px;background:#e9f1fd;font-size:14px;margin-top:10px;line-height:1.5}.status.error{background:#fff0f0;color:#ae2424}#ticketPreview{max-width:100%;max-height:48vh;display:block;margin:12px auto;object-fit:contain;border-radius:6px;background:#e3e8f1}.preview-frame{background:#e7edf5;border-radius:10px;padding:8px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}.photo{overflow:hidden;background:#ecf0f6;border-radius:10px}.photo img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}.photo>div{display:flex;align-items:center;justify-content:space-between;padding:7px;gap:5px}.photo button{font-size:13px;min-height:36px;padding:5px 9px}#gallery{margin-top:12px}.stats{font-size:14px;color:#52657c}dialog{width:94vw;max-width:780px;background:#131922;color:white;border:0;border-radius:12px;padding:12px}dialog::backdrop{background:#000c}dialog img{display:block;max-width:100%;max-height:74vh;object-fit:contain;margin:12px auto}footer{padding:12px 3px 30px;color:#66758a;font-size:12px;line-height:1.6}
+.ticket-cover{position:absolute;inset:0;background:#17202a;display:flex;align-items:center;justify-content:center;padding:6px;z-index:3}.ticket-cover img{max-width:100%;max-height:100%;object-fit:contain;display:block}.ticket-confirm{border-top:1px solid #e3eaf2;margin-top:13px;padding-top:12px}</style></head><body>
+<header><small>WORKS / SERVICE ・ 送信検証版 v0.9</small><h1>返却伝票・破損写真 撮影・送信テスト</h1></header><main>
+<div class="steps"><span id="step1" class="current">① 伝票撮影</span><span id="step2">② 伝票確認</span><span id="step3">③ 破損写真</span><span id="step4">④ 完了確認</span></div>
+<section class="card" id="ticketStage"><h2>① 返却伝票を撮影</h2><p class="muted">B5横向きの伝票を、スマホを縦に持って撮影してください。写真は90°回転して確認します。まずはテスト用の紙で試してください。</p>
+<div class="view"><div class="viewport"><video id="ticketVideo" playsinline autoplay muted class="hidden"></video><div class="hint" id="ticketEmpty">カメラ未起動</div><div id="ticketCover" class="ticket-cover hidden"><img id="ticketPreview" alt="回転後の返却伝票"></div></div><div class="camera-actions" id="ticketCameraActions"><span>伝票 1枚</span><button class="shutter" id="ticketShutter" aria-label="伝票撮影" disabled></button><span style="font-size:12px">縦向き</span></div></div>
+<div class="actions" id="ticketInputActions"><button id="ticketStart">カメラを起動</button><button id="ticketFileBtn" class="secondary">写真から選択</button></div><input type="file" id="ticketFile" accept="image/*" class="hidden">
+<p class="muted" id="ticketHelp">カメラ撮影とライブラリ選択のどちらも利用できます。</p><div class="ticket-confirm hidden" id="confirmStage"><h2>② 伝票写真を確認</h2><p class="muted">画像の向きが違えば「反対方向に回転」を押してください。</p><div class="actions"><button id="turn" class="secondary">反対方向に回転</button></div><p style="text-align:center;font-weight:700">この伝票写真でよろしいですか？</p><div class="actions"><button id="retry" class="secondary">いいえ・撮り直す</button><button id="accept">はい・次へ</button></div></div></section>
+<section class="card hidden" id="damageStage"><h2>③ 破損写真を連続撮影</h2><p class="muted">スマホを縦に持ったまま、横長4:3の枠で撮影できます。破損写真は最大49枚。シャッターを押してもカメラは閉じません。</p><div class="view"><div class="viewport damage"><video id="damageVideo" playsinline autoplay muted class="hidden"></video><div class="hint" id="damageEmpty">カメラ未起動</div></div><div class="camera-actions"><span>撮影 <b id="damageCount">0</b>/49</span><button class="shutter" id="damageShutter" aria-label="破損写真撮影" disabled></button><button id="finish" class="secondary">終了</button></div></div><div class="actions"><button id="damageStart">連続撮影を開始</button><button class="secondary" id="damageFileBtn">写真から追加</button></div><input type="file" id="damageFiles" accept="image/*" multiple class="hidden">
+<p class="stats" id="stats">破損写真 0枚 / 合計1枚</p><div class="actions"><button id="toggleGallery" class="secondary">必要な時だけ写真を確認</button></div><div class="hidden" id="gallery"><div class="grid" id="photoGrid"></div></div></section>
+<section class="card hidden" id="completeStage"><h2>④ 撮影完了・送信テスト</h2><div style="font-size:45px;text-align:center">✅</div><p id="summary" style="text-align:center;font-weight:700"></p><p class="muted">送信ボタンを押した場合のみ、テスト専用Google Driveフォルダへ保存します。通信失敗時は自動再送しません。</p><div class="actions"><button id="uploadStart">テスト用Driveへ写真を送信</button><button id="checkSaved" class="secondary" disabled>保存状況を確認</button></div>
+<div id="uploadInfo" class="status">未送信。伝票1枚から順番に送信します。</div>
+<div class="actions"><button id="backDamage" class="secondary">破損写真に戻る</button><button id="resetAll">最初から試す</button></div></section>
+<div id="status" class="status" role="status">準備完了。まず伝票撮影を試してください。</div>
+<footer>送信検証用です。テスト用の紙・画像のみを使ってください。送信した写真はGoogle Driveのテスト専用フォルダに保存されます。Android・iPhoneで撮影方向、画質、伝票の撮り直し後も枠の大きさが変わらないことを確認してください。</footer>
+<dialog id="lightbox"><div class="line"><b id="lightboxTitle">写真</b><button class="secondary" id="closeLightbox">閉じる</button></div><img id="lightboxImage" alt="写真拡大"><div class="actions"><button id="saveImage" class="secondary">この写真を保存</button></div></dialog>
+<script>
+(()=>{'use strict';
+const $=id=>document.getElementById(id);
+let stream=null,cameraType=null,ticketSource=null,ticket=null,direction=1,photos=[],busy=false,galleryOpen=false,selected=null;
+function message(m,error=false){$('status').textContent=m;$('status').className='status'+(error?' error':'')}
+function setStep(n){$('ticketStage').classList.toggle('hidden',n>2);$('confirmStage').classList.toggle('hidden',n!==2);$('ticketCover').classList.toggle('hidden',n!==2);$('ticketCameraActions').classList.toggle('hidden',n===2);$('ticketInputActions').classList.toggle('hidden',n===2);$('ticketHelp').classList.toggle('hidden',n===2);$('damageStage').classList.toggle('hidden',n!==3);$('completeStage').classList.toggle('hidden',n!==4);for(let i=1;i<=4;i++)$('step'+i).classList.toggle('current',i===n)}
+function stop(){if(stream){stream.getTracks().forEach(x=>x.stop());stream=null}['ticketVideo','damageVideo'].forEach(id=>{$(id).srcObject=null;$(id).classList.add('hidden')});$('ticketEmpty').classList.remove('hidden');$('damageEmpty').classList.remove('hidden');$('ticketShutter').disabled=true;$('damageShutter').disabled=true;$('ticketStart').classList.remove('hidden');cameraType=null}
+async function start(kind){stop();if(!navigator.mediaDevices?.getUserMedia){message('カメラ非対応です。HTTPS接続とカメラ許可を確認してください。',true);return}try{const video=$(kind==='ticket'?'ticketVideo':'damageVideo');stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:3840},height:{ideal:2160}}});video.srcObject=stream;await video.play();cameraType=kind;video.classList.remove('hidden');$(kind==='ticket'?'ticketEmpty':'damageEmpty').classList.add('hidden');$(kind==='ticket'?'ticketShutter':'damageShutter').disabled=false;if(kind==='ticket')$('ticketStart').classList.add('hidden');message(kind==='ticket'?'伝票を縦向きに撮影してください。':'連続撮影できます。')}catch(e){stop();message('カメラ起動失敗: '+(e.name||'不明')+'。アクセス許可を確認してください。',true)}}
+function jpeg(canvas){return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('JPEG変換に失敗しました')),'image/jpeg',.88))}
+function makeShot(blob,w,h){return{blob,url:URL.createObjectURL(blob),w,h}}
+async function fromVideo(kind){const v=$(kind==='ticket'?'ticketVideo':'damageVideo');if(!stream||cameraType!==kind||!v.videoWidth)throw Error('カメラの映像がありません');const w=v.videoWidth,h=v.videoHeight,target=kind==='ticket'?3/4:4/3;let sw=w,sh=h,sx=0,sy=0;if(w/h>target){sw=h*target;sx=(w-sw)/2}else{sh=w/target;sy=(h-sh)/2}const scale=Math.min(1,2400/Math.max(sw,sh));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(sw*scale));c.height=Math.max(1,Math.round(sh*scale));c.getContext('2d',{alpha:false}).drawImage(v,sx,sy,sw,sh,0,0,c.width,c.height);const b=await jpeg(c),out=makeShot(b,c.width,c.height);c.width=c.height=0;return out}
+async function fromFile(file){const bitmap=await createImageBitmap(file);try{const scale=Math.min(1,2400/Math.max(bitmap.width,bitmap.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(bitmap.width*scale));c.height=Math.max(1,Math.round(bitmap.height*scale));c.getContext('2d',{alpha:false}).drawImage(bitmap,0,0,c.width,c.height);const b=await jpeg(c),out=makeShot(b,c.width,c.height);c.width=c.height=0;return out}finally{bitmap.close()}}
+function discard(s){if(s)URL.revokeObjectURL(s.url)}
+async function rotateTicket(){if(!ticketSource)return;const b=await createImageBitmap(ticketSource.blob);try{const c=document.createElement('canvas');c.width=b.height;c.height=b.width;const ctx=c.getContext('2d',{alpha:false});ctx.translate(c.width/2,c.height/2);ctx.rotate(direction*Math.PI/2);ctx.drawImage(b,-b.width/2,-b.height/2);discard(ticket);ticket=makeShot(await jpeg(c),c.width,c.height);$('ticketPreview').src=ticket.url;c.width=c.height=0}finally{b.close()}}
+async function setTicket(s){if(cameraType==='ticket'&&stream){$('ticketShutter').disabled=true}else{stop()}discard(ticketSource);discard(ticket);ticketSource=s;ticket=null;direction=1;await rotateTicket();setStep(2);message('伝票写真を確認してください。文字の向きが違えば回転方向を切り替えられます。')}
+async function task(fn){if(busy)return;busy=true;try{await fn()}catch(e){message('処理エラー: '+e.message,true)}finally{busy=false;refresh()}}
+function refresh(){$('damageCount').textContent=photos.length;$('stats').textContent='破損写真 '+photos.length+'枚 / 合計 '+(photos.length+(ticket?1:0))+'枚 ・ 圧縮後 '+((photos.reduce((s,p)=>s+p.blob.size,0)+(ticket?.blob.size||0))/1048576).toFixed(1)+' MB';$('damageShutter').disabled=busy||!stream||cameraType!=='damage'||photos.length>=49;$('damageFileBtn').disabled=photos.length>=49;if(galleryOpen)render()}
+function render(){const grid=$('photoGrid');grid.replaceChildren();photos.forEach((s,i)=>{const box=document.createElement('div');box.className='photo';const img=document.createElement('img');img.src=s.url;img.loading='lazy';img.alt='破損写真 '+(i+1);img.onclick=()=>openPhoto(i);const foot=document.createElement('div');const label=document.createElement('span');label.textContent='写真'+(i+1);const btn=document.createElement('button');btn.className='warn';btn.textContent='削除';btn.onclick=()=>{if(!confirm('写真'+(i+1)+'を削除しますか？'))return;discard(s);photos.splice(i,1);refresh()};foot.append(label,btn);box.append(img,foot);grid.append(box)})}
+function openPhoto(i){selected=i;$('lightboxImage').src=photos[i].url;$('lightboxTitle').textContent='写真 '+(i+1)+'（'+photos[i].w+'×'+photos[i].h+'）';$('lightbox').showModal()}
+$('ticketStart').onclick=()=>start('ticket');$('ticketShutter').onclick=()=>task(async()=>setTicket(await fromVideo('ticket')));
+$('ticketFileBtn').onclick=()=>$('ticketFile').click();$('ticketFile').onchange=e=>task(async()=>{const f=e.target.files?.[0];if(f)await setTicket(await fromFile(f));e.target.value=''});
+$('turn').onclick=()=>task(async()=>{direction*=-1;await rotateTicket()});
+$('retry').onclick=()=>{discard(ticketSource);discard(ticket);ticketSource=ticket=null;setStep(1);if(stream&&cameraType==='ticket'&&stream.getVideoTracks().some(t=>t.readyState==='live')){$('ticketVideo').classList.remove('hidden');$('ticketEmpty').classList.add('hidden');$('ticketShutter').disabled=false;$('ticketStart').classList.add('hidden');message('同じカメラで撮り直せます。枠の大きさを維持します。')}else{stop();message('伝票を撮り直してください。「カメラを起動」を押してください。')}};
+$('accept').onclick=()=>{stop();setStep(3);message('伝票確定。破損写真の連続撮影へ進んでください。')};
+$('damageStart').onclick=()=>start('damage');
+$('damageShutter').onclick=()=>task(async()=>{if(photos.length>=49)return;photos.push(await fromVideo('damage'));message(photos.length+'枚撮影しました。続けて撮影できます。')});
+$('damageFileBtn').onclick=()=>$('damageFiles').click();$('damageFiles').onchange=e=>task(async()=>{const files=Array.from(e.target.files||[]);let added=0;for(const file of files){if(photos.length>=49)break;photos.push(await fromFile(file));added++}e.target.value='';message(added+'枚追加しました。')});
+$('toggleGallery').onclick=()=>{galleryOpen=!galleryOpen;$('gallery').classList.toggle('hidden',!galleryOpen);$('toggleGallery').textContent=galleryOpen?'写真一覧を閉じる':'必要な時だけ写真を確認';refresh()};
+$('finish').onclick=()=>{stop();setStep(4);$('summary').textContent='伝票 1枚 ＋ 破損写真 '+photos.length+'枚（合計 '+(1+photos.length)+'枚）';message('撮影テスト完了。サーバーには送信していません。')};
+$('backDamage').onclick=()=>{setStep(3);message('破損写真の撮影を再開できます。')};
+$('resetAll').onclick=()=>{stop();discard(ticketSource);discard(ticket);photos.forEach(discard);ticketSource=ticket=null;photos=[];galleryOpen=false;$('gallery').classList.add('hidden');setStep(1);refresh();message('最初から撮影できます。')};
+$('closeLightbox').onclick=()=>$('lightbox').close();$('lightbox').addEventListener('close',()=>{$('lightboxImage').removeAttribute('src');selected=null});
+$('saveImage').onclick=()=>{if(selected===null)return;const a=document.createElement('a');a.href=photos[selected].url;a.download='works-damage-test-'+String(selected+1).padStart(2,'0')+'.jpg';a.click()};
+// 送信テスト: 撮影コードv0.7を維持し、POST保存のみ追加
+const UPLOAD_GAS='https://script.google.com/macros/s/AKfycbwJOcM-09S51ItbVrodWIcqE_2e11YaBD8-wvXPoNRBH0li1-UeCOKujMzFxVeINrgiaA/exec';
+let uploadSession=null,uploadRunning=false,uploadNext=0;
+const uploadInfo=$('uploadInfo');
+function uploadMsg(t){uploadInfo.textContent=t}
+async function api(payload){
+  const response=await fetch(UPLOAD_GAS,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)});
+  const data=await response.json();
+  if(!response.ok||!data.ok)throw Error(data.error||'サーバー応答エラー');
+  return data;
+}
+function base64Of(blob){
+  return new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(Error('画像の読み込み失敗'));reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.readAsDataURL(blob)});
+}
+async function smallEnough(blob){
+  if(blob.size<=5*1024*1024)return blob;
+  const bitmap=await createImageBitmap(blob);
+  try{
+    const c=document.createElement('canvas'),scale=Math.min(1,2000/Math.max(bitmap.width,bitmap.height));
+    c.width=Math.round(bitmap.width*scale);c.height=Math.round(bitmap.height*scale);
+    c.getContext('2d').drawImage(bitmap,0,0,c.width,c.height);
+    const b=await new Promise((resolve,reject)=>c.toBlob(x=>x?resolve(x):reject(Error('圧縮失敗')),'image/jpeg',.72));
+    c.width=c.height=0;
+    if(b.size>5*1024*1024)throw Error('写真が5MBを超えています');
+    return b;
+  }finally{bitmap.close()}
+}
+$('uploadStart').onclick=async()=>{
+  if(uploadRunning||!ticket)return;
+  uploadRunning=true;$('uploadStart').disabled=true;$('backDamage').disabled=true;$('resetAll').disabled=true;
+  try{
+    if(!uploadSession){
+      uploadMsg('テスト用フォルダを作成中…');
+      const start=await api({action:'start'});
+      uploadSession=start.sessionId;uploadNext=0;$('checkSaved').disabled=false;
+    }
+    const images=[ticket,...photos];
+    for(let i=uploadNext;i<images.length;i++){
+      uploadMsg((i+1)+' / '+images.length+' 枚目を送信中…\n※エラー時は自動再送しません');
+      const blob=await smallEnough(images[i].blob);
+      await api({action:'upload',sessionId:uploadSession,index:i,base64:await base64Of(blob),expectedBytes:blob.size});
+      uploadNext=i+1;
+    }
+    const status=await api({action:'status',sessionId:uploadSession});
+    uploadMsg('保存完了：'+status.saved.length+'枚\nフォルダURL：'+status.folderUrl);
+    $('uploadStart').textContent='保存完了';$('uploadStart').disabled=true;
+  }catch(e){
+    uploadMsg('送信結果を確認できません：'+e.message+'\n「保存状況を確認」でDrive側の結果を確認してください。自動再送はしません。');
+  }finally{uploadRunning=false;$('backDamage').disabled=false;$('resetAll').disabled=false}
+};
+$('checkSaved').onclick=async()=>{
+  if(!uploadSession||uploadRunning)return;
+  try{
+    const r=await api({action:'status',sessionId:uploadSession});
+    const saved=new Set(r.saved.map(x=>x.index));
+    const total=1+photos.length;
+    uploadMsg('Drive保存確認：'+r.saved.length+' / '+total+'枚\n'+r.folderUrl+'\n保存済み番号：'+r.saved.map(x=>x.index).join(', '));
+    let next=0;while(next<total&&saved.has(next))next++;
+    uploadNext=next;
+    if(next<total){$('uploadStart').disabled=false;$('uploadStart').textContent='未保存分を手動で送信';}
+    else{$('uploadStart').disabled=true;$('uploadStart').textContent='保存完了';}
+  }catch(e){uploadMsg('保存状況の照会に失敗：'+e.message)}
+};
+window.addEventListener('pagehide',stop);refresh();
+})();
+</script></main></body></html>

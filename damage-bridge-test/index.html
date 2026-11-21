@@ -4,13 +4,13 @@
 <style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f3f6fa;color:#16253b;margin:0}header{background:#1558a5;color:white;padding:18px}main{max-width:680px;margin:auto;padding:16px}.card{background:white;padding:17px;border-radius:14px;margin:12px 0;box-shadow:0 2px 8px #0001}button{background:#1558a5;color:white;border:0;border-radius:10px;padding:13px;font-size:16px;font-weight:bold;width:100%}.status{white-space:pre-wrap;overflow-wrap:anywhere;background:#edf2f9;border-radius:8px;padding:12px;min-height:50px;font-size:14px;line-height:1.6}.muted{font-size:13px;color:#5e6d80;line-height:1.7}iframe{width:100%;height:260px;border:1px solid #bdc9d7;border-radius:8px}</style></head><body>
 <header><small>WORKS / 技術検証</small><h2>GitHub Pages → GAS 通信確認</h2></header><main>
 <section class="card"><p class="muted">これは保存・撮影を行わない読み取り専用の診断です。既存アプリやGoogle Driveのデータは変更しません。</p>
-<button id="postTest">① QR在庫管理方式でPOST通信を確認</button><p id="postResult" class="status">未実行</p><p class="muted">写真・個人情報は送らず、pingだけを送信します。GASを更新・再デプロイしてから実行してください。</p>
+<button id="postTest">① QR在庫管理方式でPOST通信を確認</button><p id="postResult" class="status">未実行</p><p class="muted">写真・個人情報は送らず、pingだけを送信します。QR在庫管理と同じ一般形式のGAS URLを使用します。再デプロイは不要です。</p>
 <button id="test" style="background:#5d6d80">参考：以前のGET通信テスト</button><p id="result" class="status">未実行</p>
 <p class="muted">「Failed to fetch」等の場合、直接通信の制限が疑われます。これはiPhoneのカメラ権限とは別の問題です。</p></section>
 <section class="card"><h3>② GAS画面の埋め込み確認</h3><button id="frameButton">埋め込み画面を表示</button><p id="frameStatus" class="status">未実行</p><div id="frameBox"></div>
 <p class="muted">表示できても、認証・写真送信が可能と確定するわけではありません。画面が真っ白・ログイン要求・ブロック表示になった場合は、そのまま教えてください。</p></section>
 </main><script>
-const gas='https://script.google.com/a/macros/works-rental.co.jp/s/AKfycbwJOcM-09S51ItbVrodWIcqE_2e11YaBD8-wvXPoNRBH0li1-UeCOKujMzFxVeINrgiaA/exec';
+const gas='https://script.google.com/macros/s/AKfycbwJOcM-09S51ItbVrodWIcqE_2e11YaBD8-wvXPoNRBH0li1-UeCOKujMzFxVeINrgiaA/exec';
 document.getElementById('postTest').onclick=async()=>{
 const out=document.getElementById('postResult');out.textContent='POST送信中…';
 try {

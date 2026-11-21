@@ -3,7 +3,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#f2f5fa;color:#15263b;font-family:-apple-system,BlinkMacSystemFont,"Noto Sans JP",sans-serif}header{background:#1558a5;color:#fff;padding:17px}header h1{font-size:20px;margin:4px 0}main{max-width:720px;margin:auto;padding:14px}.card{background:white;border-radius:16px;padding:16px;margin-bottom:13px;box-shadow:0 2px 10px #1232 08}.steps{display:flex;gap:6px;justify-content:space-between;margin:0 0 13px}.steps span{font-size:12px;border-radius:9px;padding:9px 6px;text-align:center;flex:1;background:#e1e8f1;color:#536579}.steps span.current{background:#1558a5;color:white;font-weight:700}.muted{font-size:13px;color:#5d6d82;line-height:1.65}.line{display:flex;align-items:center;justify-content:space-between;gap:9px}.actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px}.actions button{flex:1}button{border:0;border-radius:10px;background:#1558a5;color:white;font-size:16px;font-weight:700;min-height:48px;padding:10px 13px;cursor:pointer}button.secondary{background:#e7eef9;color:#15518f}button.warn{background:#fce8e8;color:#a52222}button:disabled{opacity:.45}.hidden{display:none!important}.view{background:#090d15;border-radius:12px;overflow:hidden}.viewport{position:relative;display:block;width:100%;height:0;padding-bottom:133.333333%;overflow:hidden;background:#080b11}.viewport.damage{padding-bottom:75%}.viewport .hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}.viewport video{display:block;position:absolute;inset:0;width:100%!important;height:100%!important;min-width:100%;min-height:100%;object-fit:cover;max-width:none;max-height:none}.camera-actions{background:#17202a;color:white;padding:12px;display:flex;gap:9px;justify-content:space-between;align-items:center}.shutter{width:72px;height:72px;border-radius:50%;background:white;border:5px solid #ddd;box-shadow:inset 0 0 0 3px #303640;flex:0 0 72px}.camera-actions button.secondary{min-height:43px}.hint{color:#a9b4c2;font-size:12px;text-align:center;padding:12px}.status{padding:12px;border-radius:10px;background:#e9f1fd;font-size:14px;margin-top:10px;line-height:1.5}.status.error{background:#fff0f0;color:#ae2424}#ticketPreview{max-width:100%;max-height:48vh;display:block;margin:12px auto;object-fit:contain;border-radius:6px;background:#e3e8f1}.preview-frame{background:#e7edf5;border-radius:10px;padding:8px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}.photo{overflow:hidden;background:#ecf0f6;border-radius:10px}.photo img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}.photo>div{display:flex;align-items:center;justify-content:space-between;padding:7px;gap:5px}.photo button{font-size:13px;min-height:36px;padding:5px 9px}#gallery{margin-top:12px}.stats{font-size:14px;color:#52657c}dialog{width:94vw;max-width:780px;background:#131922;color:white;border:0;border-radius:12px;padding:12px}dialog::backdrop{background:#000c}dialog img{display:block;max-width:100%;max-height:74vh;object-fit:contain;margin:12px auto}footer{padding:12px 3px 30px;color:#66758a;font-size:12px;line-height:1.6}
 .ticket-cover{position:absolute;inset:0;background:#17202a;display:flex;align-items:center;justify-content:center;padding:6px;z-index:3}.ticket-cover img{max-width:100%;max-height:100%;object-fit:contain;display:block}.ticket-confirm{border-top:1px solid #e3eaf2;margin-top:13px;padding-top:12px}</style></head><body>
-<header><small>WORKS / SERVICE ・ 振分検証版 v1.0</small><h1>返却伝票・破損写真 撮影・送信テスト</h1></header><main>
+<header><small>WORKS / SERVICE ・ マスタ連携検証版 v1.1</small><h1>返却伝票・破損写真 撮影・送信テスト</h1></header><main>
 <div class="steps"><span id="step1" class="current">① 伝票撮影</span><span id="step2">② 伝票確認</span><span id="step3">③ 破損写真</span><span id="step4">④ 完了確認</span></div>
 <section class="card" id="ticketStage"><h2>① 返却伝票を撮影</h2><p class="muted">B5横向きの伝票を、スマホを縦に持って撮影してください。写真は90°回転して確認します。まずはテスト用の紙で試してください。</p>
 <div class="view"><div class="viewport"><video id="ticketVideo" playsinline autoplay muted class="hidden"></video><div class="hint" id="ticketEmpty">カメラ未起動</div><div id="ticketCover" class="ticket-cover hidden"><img id="ticketPreview" alt="回転後の返却伝票"></div></div><div class="camera-actions" id="ticketCameraActions"><span>伝票 1枚</span><button class="shutter" id="ticketShutter" aria-label="伝票撮影" disabled></button><span style="font-size:12px">縦向き</span></div></div>
@@ -12,8 +12,8 @@
 <section class="card hidden" id="damageStage"><h2>③ 破損写真を連続撮影</h2><p class="muted">スマホを縦に持ったまま、横長4:3の枠で撮影できます。破損写真は最大49枚。シャッターを押してもカメラは閉じません。</p><div class="view"><div class="viewport damage"><video id="damageVideo" playsinline autoplay muted class="hidden"></video><div class="hint" id="damageEmpty">カメラ未起動</div></div><div class="camera-actions"><span>撮影 <b id="damageCount">0</b>/49</span><button class="shutter" id="damageShutter" aria-label="破損写真撮影" disabled></button><button id="finish" class="secondary">終了</button></div></div><div class="actions"><button id="damageStart">連続撮影を開始</button><button class="secondary" id="damageFileBtn">写真から追加</button></div><input type="file" id="damageFiles" accept="image/*" multiple class="hidden">
 <p class="stats" id="stats">破損写真 0枚 / 合計1枚</p><div class="actions"><button id="toggleGallery" class="secondary">必要な時だけ写真を確認</button></div><div class="hidden" id="gallery"><div class="grid" id="photoGrid"></div></div></section>
 <section class="card hidden" id="completeStage"><h2>④ 撮影完了・フォルダ振分テスト</h2>
-<div style="display:grid;gap:12px;margin:12px 0"><label>取引先名（テスト用）<input id="customerName" type="text" maxlength="80" placeholder="例：テスト商事" style="width:100%;font-size:18px;padding:12px;border:1px solid #bcc9db;border-radius:9px"></label><label>返却日<input id="returnDate" type="date" style="width:100%;font-size:18px;padding:12px;border:1px solid #bcc9db;border-radius:9px"></label></div>
-<p class="muted">保存先：テストルート / 年 / 月 / 取引先名 / 返却日。今回は取引先名を手入力します（マスタ連携は次段階）。</p><div style="font-size:45px;text-align:center">✅</div><p id="summary" style="text-align:center;font-weight:700"></p><p class="muted">送信ボタンを押した場合のみ、テスト専用Google Driveフォルダへ保存します。通信失敗時は自動再送しません。</p><div class="actions"><button id="uploadStart">指定フォルダへ写真を送信</button><button id="checkSaved" class="secondary" disabled>保存状況を確認</button></div>
+<div style="display:grid;gap:12px;margin:12px 0"><label>取引先検索（漢字・かな・カナ）<input id="customerSearch" type="search" autocomplete="off" placeholder="取引先名・かなで検索" style="width:100%;font-size:18px;padding:12px;border:1px solid #bcc9db;border-radius:9px"></label><div id="customerResults" style="max-height:230px;overflow:auto;border:1px solid #d4dce8;border-radius:10px;padding:5px"></div><div id="customerSelected" class="status">取引先未選択</div><button id="customerReload" class="secondary" type="button">取引先マスタを再読込</button><label>返却日<input id="returnDate" type="date" style="width:100%;font-size:18px;padding:12px;border:1px solid #bcc9db;border-radius:9px"></label></div>
+<p class="muted">保存先：テストルート / 年 / 月 / 取引先名 / 返却日。取引先マスタから候補を選択してください。手入力しただけでは確定しません。</p><div style="font-size:45px;text-align:center">✅</div><p id="summary" style="text-align:center;font-weight:700"></p><p class="muted">送信ボタンを押した場合のみ、テスト専用Google Driveフォルダへ保存します。通信失敗時は自動再送しません。</p><div class="actions"><button id="uploadStart">指定フォルダへ写真を送信</button><button id="checkSaved" class="secondary" disabled>保存状況を確認</button></div>
 <div id="uploadInfo" class="status">未送信。伝票1枚から順番に送信します。</div>
 <div class="actions"><button id="backDamage" class="secondary">破損写真に戻る</button><button id="resetAll">最初から試す</button></div></section>
 <div id="status" class="status" role="status">準備完了。まず伝票撮影を試してください。</div>
@@ -49,14 +49,41 @@ $('damageFileBtn').onclick=()=>$('damageFiles').click();$('damageFiles').onchang
 $('toggleGallery').onclick=()=>{galleryOpen=!galleryOpen;$('gallery').classList.toggle('hidden',!galleryOpen);$('toggleGallery').textContent=galleryOpen?'写真一覧を閉じる':'必要な時だけ写真を確認';refresh()};
 $('finish').onclick=()=>{stop();setStep(4);$('summary').textContent='伝票 1枚 ＋ 破損写真 '+photos.length+'枚（合計 '+(1+photos.length)+'枚）';message('撮影テスト完了。サーバーには送信していません。')};
 $('backDamage').onclick=()=>{setStep(3);message('破損写真の撮影を再開できます。')};
-$('resetAll').onclick=()=>{stop();discard(ticketSource);discard(ticket);photos.forEach(discard);ticketSource=ticket=null;photos=[];uploadSession=null;uploadToken=null;uploadNext=0;$('customerName').disabled=false;$('returnDate').disabled=false;$('uploadStart').disabled=false;$('uploadStart').textContent='指定フォルダへ写真を送信';$('checkSaved').disabled=true;uploadMsg('未送信');galleryOpen=false;$('gallery').classList.add('hidden');setStep(1);refresh();message('最初から撮影できます。')};
+$('resetAll').onclick=()=>{stop();discard(ticketSource);discard(ticket);photos.forEach(discard);ticketSource=ticket=null;photos=[];uploadSession=null;uploadToken=null;uploadNext=0;$('customerSearch').disabled=false;$('returnDate').disabled=false;$('uploadStart').disabled=false;$('uploadStart').textContent='指定フォルダへ写真を送信';$('checkSaved').disabled=true;uploadMsg('未送信');selectedCustomer=null;$('customerSearch').value='';$('customerSelected').textContent='取引先未選択';renderCustomers();galleryOpen=false;$('gallery').classList.add('hidden');setStep(1);refresh();message('最初から撮影できます。')};
 $('closeLightbox').onclick=()=>$('lightbox').close();$('lightbox').addEventListener('close',()=>{$('lightboxImage').removeAttribute('src');selected=null});
 $('saveImage').onclick=()=>{if(selected===null)return;const a=document.createElement('a');a.href=photos[selected].url;a.download='works-damage-test-'+String(selected+1).padStart(2,'0')+'.jpg';a.click()};
 // 送信テスト: 撮影コードv0.7を維持し、POST保存のみ追加
 const UPLOAD_GAS='https://script.google.com/macros/s/AKfycbwJOcM-09S51ItbVrodWIcqE_2e11YaBD8-wvXPoNRBH0li1-UeCOKujMzFxVeINrgiaA/exec';
-let uploadSession=null,uploadToken=null,uploadRunning=false,uploadNext=0;
+let uploadSession=null,uploadToken=null,uploadRunning=false,uploadNext=0;\nlet customers=[],selectedCustomer=null;
 $('returnDate').value=new Date(Date.now()+9*3600000).toISOString().slice(0,10);
 const uploadInfo=$('uploadInfo');
+
+function normalizeCustomer(s){
+  return String(s||'').normalize('NFKC').toLowerCase().replace(/[\s　・･.．]/g,'').replace(/[ぁ-ゖ]/g,c=>String.fromCharCode(c.charCodeAt(0)+96));
+}
+function renderCustomers(){
+  const target=$('customerResults');target.replaceChildren();
+  const query=normalizeCustomer($('customerSearch').value);
+  if(!customers.length){target.textContent='マスタを読み込んでいます…';return}
+  if(!query){target.textContent='取引先名・かなを入力すると候補が表示されます';return}
+  const found=customers.filter(c=>[c.name,c.short,c.kana].some(v=>normalizeCustomer(v).includes(query))).slice(0,30);
+  if(!found.length){target.textContent='該当する取引先がありません';return}
+  found.forEach(c=>{
+    const btn=document.createElement('button');btn.type='button';btn.className='secondary';
+    btn.style.cssText='display:block;width:100%;text-align:left;margin:3px 0;font-size:15px';
+    btn.textContent=c.name+(c.short&&c.short!==c.name?'（'+c.short+'）':'');
+    btn.onclick=()=>{selectedCustomer=c.name;$('customerSearch').value=c.name;$('customerSelected').textContent='選択中：'+c.name;renderCustomers()};
+    target.append(btn);
+  });
+}
+async function loadCustomers(){
+  $('customerResults').textContent='マスタ読込中…';
+  try{const r=await api({action:'customers'});customers=r.customers||[];renderCustomers()}
+  catch(e){$('customerResults').textContent='マスタ読込失敗：'+e.message+'（GASの再デプロイを確認）'}
+}
+$('customerSearch').oninput=()=>{selectedCustomer=null;$('customerSelected').textContent='取引先未選択';renderCustomers()};
+$('customerReload').onclick=loadCustomers;
+
 function uploadMsg(t){uploadInfo.textContent=t}
 async function api(payload){
   const response=await fetch(UPLOAD_GAS,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)});
@@ -86,10 +113,10 @@ $('uploadStart').onclick=async()=>{
   try{
     if(!uploadSession){
       uploadMsg('テスト用フォルダを作成中…');
-      const customer=$('customerName').value.trim(),returnDate=$('returnDate').value;
-      if(!customer||!returnDate)throw Error('取引先名と返却日を入力してください');
+      const customer=selectedCustomer,returnDate=$('returnDate').value;
+      if(!customer||!returnDate)throw Error('取引先を候補から選択し、返却日を入力してください');
       const start=await api({action:'organizedStart',customer,returnDate});
-      uploadSession=start.sessionId;uploadToken=start.token;uploadNext=0;$('customerName').disabled=true;$('returnDate').disabled=true;$('checkSaved').disabled=false;
+      uploadSession=start.sessionId;uploadToken=start.token;uploadNext=0;$('customerSearch').disabled=true;$('returnDate').disabled=true;$('checkSaved').disabled=false;
     }
     const images=[ticket,...photos];
     for(let i=uploadNext;i<images.length;i++){
@@ -118,6 +145,6 @@ $('checkSaved').onclick=async()=>{
     else{$('uploadStart').disabled=true;$('uploadStart').textContent='保存完了';}
   }catch(e){uploadMsg('保存状況の照会に失敗：'+e.message)}
 };
-window.addEventListener('pagehide',stop);refresh();
+window.addEventListener('pagehide',stop);refresh();loadCustomers();
 })();
 </script></main></body></html>

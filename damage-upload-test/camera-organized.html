@@ -67,7 +67,7 @@ $('siteUnknown').onclick=()=>{$('siteName').value='現場不明';$('siteName').f
 const uploadInfo=$('uploadInfo');
 let timingRows=[],timingStarted=0;
 const ms=t=>Math.round(t);
-function timingText(){const total=timingStarted?ms(performance.now()-timingStarted):0;return '送信計測（端末側、ミリ秒）\n'+timingRows.map(r=>'#'+r.index+' '+r.mb+'MB 変換:'+r.convert+' 通信＋GAS:'+r.network+'（GAS保存:'+r.server+'） 合計:'+r.total).join('\n')+'\n経過合計:'+total+'ms ※通信＋GASには通信往復・GAS処理・Drive保存が含まれます。GAS保存はサーバー内計測値です。'}
+function timingText(){const total=timingStarted?ms(performance.now()-timingStarted):0;return '送信計測（端末側、ミリ秒）\n'+timingRows.map(r=>'#'+r.index+' '+r.mb+'MB 変換:'+r.convert+' 通信＋GAS:'+r.network+'（GAS合計:'+r.server+'／内訳:'+ (r.metrics?'デコード'+r.metrics.decodeMs+'・ロック'+r.metrics.lockMs+'・フォルダ'+r.metrics.folderMs+'・重複確認'+r.metrics.lookupMs+'・Drive書込'+(r.metrics.writeMs??0):'未取得')+'） 合計:'+r.total).join('\n')+'\n経過合計:'+total+'ms ※通信＋GASには通信往復・GAS処理・Drive保存が含まれます。GAS保存はサーバー内計測値です。'}
 function showTiming(){$('timingReport').textContent=timingText()}
 $('copyTiming').onclick=async()=>{const value=timingText();try{await navigator.clipboard.writeText(value);message('計測結果をコピーしました')}catch(e){message('コピーできませんでした。計測結果の文字を選択してください。',true)}};
 
@@ -137,7 +137,7 @@ $('uploadStart').onclick=async()=>{
       uploadMsg((i+1)+' / '+images.length+' 枚目を送信中…\n※エラー時は自動再送しません');
       const t0=performance.now();const blob=await smallEnough(images[i].blob);const encoded=await base64Of(blob);const t1=performance.now();
       const result=await api({action:'organizedUpload',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim(),index:i,base64:encoded,expectedBytes:blob.size});
-      const t2=performance.now();timingRows=timingRows.filter(x=>x.index!==i);timingRows.push({index:i,mb:(blob.size/1048576).toFixed(2),convert:ms(t1-t0),network:ms(t2-t1),server:result.serverMs??'未取得',total:ms(t2-t0)});showTiming();
+      const t2=performance.now();timingRows=timingRows.filter(x=>x.index!==i);timingRows.push({index:i,mb:(blob.size/1048576).toFixed(2),convert:ms(t1-t0),network:ms(t2-t1),server:result.serverMs??'未取得',metrics:result.metrics||null,total:ms(t2-t0)});showTiming();
       uploadNext=i+1;
     }
     const status=await api({action:'organizedStatus',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim()});

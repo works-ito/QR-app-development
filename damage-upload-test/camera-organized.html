@@ -133,16 +133,47 @@ $('uploadStart').onclick=async()=>{
       uploadSession=start.sessionId;uploadToken=start.token;uploadNext=0;$('customerSearch').disabled=true;$('returnDate').disabled=true;$('siteName').disabled=true;$('checkSaved').disabled=false;
     }
     const images=[ticket,...photos];
-    for(let i=uploadNext;i<images.length;i++){
-      uploadMsg((i+1)+' / '+images.length+' 枚目を送信中…\n※エラー時は自動再送しません');
-      const t0=performance.now();const blob=await smallEnough(images[i].blob);const encoded=await base64Of(blob);const t1=performance.now();
-      const result=await api({action:'organizedUpload',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim(),index:i,base64:encoded,expectedBytes:blob.size});
-      const t2=performance.now();timingRows=timingRows.filter(x=>x.index!==i);timingRows.push({index:i,mb:(blob.size/1048576).toFixed(2),convert:ms(t1-t0),network:ms(t2-t1),server:result.serverMs??'未取得',metrics:result.metrics||null,total:ms(t2-t0)});showTiming();
-      uploadNext=i+1;
+    // 送信開始時に保存済み番号を取得。途中失敗後も未保存分だけを手動再開する。
+    const before=await api({action:'organizedStatus',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim()});
+    const savedBefore=new Set(before.saved.map(x=>x.index));
+    const pending=images.map((_,i)=>i).filter(i=>!savedBefore.has(i));
+    let cursor=0,completed=0;
+    const errors=[];
+    async function worker(){
+      while(cursor<pending.length){
+        const i=pending[cursor++];
+        uploadMsg('並列送信中：'+completed+' / '+pending.length+'枚完了（最大2枚同時）\\n※エラー時は自動再送しません');
+        try{
+          const t0=performance.now();
+          const blob=await smallEnough(images[i].blob);
+          const encoded=await base64Of(blob);
+          const t1=performance.now();
+          const result=await api({action:'organizedUpload',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim(),index:i,base64:encoded,expectedBytes:blob.size});
+          const t2=performance.now();
+          timingRows=timingRows.filter(x=>x.index!==i);
+          timingRows.push({index:i,mb:(blob.size/1048576).toFixed(2),convert:ms(t1-t0),network:ms(t2-t1),server:result.serverMs??'未取得',metrics:result.metrics||null,total:ms(t2-t0)});
+          timingRows.sort((a,b)=>a.index-b.index);
+          completed++;showTiming();
+        }catch(e){
+          errors.push('#'+i+': '+e.message);
+          // 結果不明のまま次の写真を自動送信しない。
+          cursor=pending.length;
+          break;
+        }
+      }
     }
+    await Promise.all([worker(),worker()]);
     const status=await api({action:'organizedStatus',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim()});
-    uploadMsg('保存完了：'+status.saved.length+'枚\nフォルダURL：'+status.folderUrl);
-    $('uploadStart').textContent='保存完了';$('uploadStart').disabled=true;
+    const saved=new Set(status.saved.map(x=>x.index));
+    let next=0;while(next<images.length&&saved.has(next))next++;
+    uploadNext=next;
+    if(errors.length||saved.size!==images.length){
+      $('uploadStart').disabled=false;$('uploadStart').textContent='未保存分を手動で送信';
+      uploadMsg('保存確認：'+status.saved.length+' / '+images.length+'枚\\n'+(errors.length?'送信エラー：'+errors.join('／')+'\\n':'')+'未保存分はボタンで手動再開してください。\\n'+status.folderUrl);
+    }else{
+      uploadMsg('保存完了：'+status.saved.length+'枚\\nフォルダURL：'+status.folderUrl);
+      $('uploadStart').textContent='保存完了';$('uploadStart').disabled=true;
+    }
   }catch(e){
     if(timingStarted)showTiming();
     uploadMsg('送信結果を確認できません：'+e.message+'\n「保存状況を確認」でDrive側の結果を確認してください。自動再送はしません。');

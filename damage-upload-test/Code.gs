@@ -50,10 +50,19 @@ function doGet() {
   return HtmlService.createHtmlOutputFromFile('Index')
     .setTitle('WORKS 写真保存テスト');
 }
+function testRootId_() {
+  const id=PropertiesService.getScriptProperties().getProperty('TEST_ROOT_FOLDER_ID');
+  if(!id)throw Error('TEST_ROOT_FOLDER_ID が設定されていません');
+  return id;
+}
 function testRoot_() {
-  const id = PropertiesService.getScriptProperties().getProperty('TEST_ROOT_FOLDER_ID');
-  if (!id) throw new Error('TEST_ROOT_FOLDER_ID が設定されていません');
-  return DriveApp.getFolderById(id);
+  return DriveApp.getFolderById(testRootId_());
+}
+// サーバーが作成した保存先だけを短時間キャッシュし、次のアップロード時の階層走査を省く。
+function cacheOrganizedFolder_(sessionId) {
+  try{
+    CacheService.getScriptCache().put('damage_verified_folder_'+testRootId_()+'_'+sessionId,'ok',300);
+  }catch(e){} // キャッシュが利用できない場合は通常の階層検証に戻る
 }
 function testSession_(sessionId) {
   if (!/^[A-Za-z0-9_-]{10,128}$/.test(String(sessionId))) {
@@ -171,14 +180,16 @@ function startOrganized_(customer,returnDate,siteName) {
       if(!collision){token=candidate;break}
     }
     if(!token)throw Error('送信識別子を確保できません');
-    return {sessionId:folder.getId(),token,folderUrl:folder.getUrl(),saved:[]};
+    const folderId=folder.getId();
+    cacheOrganizedFolder_(folderId);
+    return {sessionId:folderId,token,folderUrl:folder.getUrl(),saved:[]};
   }finally{lock.releaseLock()}
 }
 function organizedFolder_(sessionId) {
   if(!/^[A-Za-z0-9_-]{10,128}$/.test(String(sessionId)))throw Error('不正なフォルダID');
   const f=DriveApp.getFolderById(sessionId);
   // 検証済みフォルダのみ短時間キャッシュ。未検証IDは従来どおり階層を検査する。
-  const rootId=testRoot_().getId();
+  const rootId=testRootId_();
   const cacheKey='damage_verified_folder_'+rootId+'_'+sessionId;
   let cache=null;
   try{cache=CacheService.getScriptCache()}catch(e){}

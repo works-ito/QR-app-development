@@ -133,43 +133,36 @@ $('uploadStart').onclick=async()=>{
       uploadSession=start.sessionId;uploadToken=start.token;uploadNext=0;$('customerSearch').disabled=true;$('returnDate').disabled=true;$('siteName').disabled=true;$('checkSaved').disabled=false;
     }
     const images=[ticket,...photos];
-    // 送信開始時に保存済み番号を取得。途中失敗後も未保存分だけを手動再開する。
-    const before=await api({action:'organizedStatus',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim()});
-    const savedBefore=new Set(before.saved.map(x=>x.index));
-    const pending=images.map((_,i)=>i).filter(i=>!savedBefore.has(i));
-    let cursor=0,completed=0;
-    const errors=[];
-    async function worker(){
-      while(cursor<pending.length){
-        const i=pending[cursor++];
-        uploadMsg('並列送信中：'+completed+' / '+pending.length+'枚完了（最大2枚同時）\\n※エラー時は自動再送しません');
-        try{
-          const t0=performance.now();
-          const blob=await smallEnough(images[i].blob);
-          const encoded=await base64Of(blob);
-          const t1=performance.now();
-          const result=await api({action:'organizedUpload',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim(),index:i,base64:encoded,expectedBytes:blob.size});
-          const t2=performance.now();
-          timingRows=timingRows.filter(x=>x.index!==i);
-          timingRows.push({index:i,mb:(blob.size/1048576).toFixed(2),convert:ms(t1-t0),network:ms(t2-t1),server:result.serverMs??'未取得',metrics:result.metrics||null,total:ms(t2-t0)});
-          timingRows.sort((a,b)=>a.index-b.index);
-          completed++;showTiming();
-        }catch(e){
-          errors.push('#'+i+': '+e.message);
-          // 結果不明のまま次の写真を自動送信しない。
-          cursor=pending.length;
-          break;
-        }
-      }
+    // 初回は新規トークンのため事前照会を省略。再開時は必ずDrive保存状況を確認する。
+    let savedBefore=new Set();
+    if(uploadNext>0 || timingRows.length){
+      const before=await api({action:'organizedStatus',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim()});
+      savedBefore=new Set(before.saved.map(x=>x.index));
     }
-    await Promise.all([worker(),worker()]);
+    let error=null;
+    for(let i=0;i<images.length;i++){
+      if(savedBefore.has(i))continue;
+      uploadMsg('順番に送信中：'+i+' / '+images.length+'枚\\n※エラー時は自動再送しません');
+      try{
+        const t0=performance.now();
+        const blob=await smallEnough(images[i].blob);
+        const encoded=await base64Of(blob);
+        const t1=performance.now();
+        const result=await api({action:'organizedUpload',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim(),index:i,base64:encoded,expectedBytes:blob.size});
+        const t2=performance.now();
+        timingRows=timingRows.filter(x=>x.index!==i);
+        timingRows.push({index:i,mb:(blob.size/1048576).toFixed(2),convert:ms(t1-t0),network:ms(t2-t1),server:result.serverMs??'未取得',metrics:result.metrics||null,total:ms(t2-t0)});
+        timingRows.sort((a,b)=>a.index-b.index);
+        showTiming();
+      }catch(e){error='#'+i+': '+e.message;break}
+    }
     const status=await api({action:'organizedStatus',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim()});
     const saved=new Set(status.saved.map(x=>x.index));
     let next=0;while(next<images.length&&saved.has(next))next++;
     uploadNext=next;
-    if(errors.length||saved.size!==images.length){
+    if(error||saved.size!==images.length){
       $('uploadStart').disabled=false;$('uploadStart').textContent='未保存分を手動で送信';
-      uploadMsg('保存確認：'+status.saved.length+' / '+images.length+'枚\\n'+(errors.length?'送信エラー：'+errors.join('／')+'\\n':'')+'未保存分はボタンで手動再開してください。\\n'+status.folderUrl);
+      uploadMsg('保存確認：'+status.saved.length+' / '+images.length+'枚\\n'+(error?'送信エラー：'+error+'\\n':'')+'未保存分はボタンで手動再開してください。\\n'+status.folderUrl);
     }else{
       uploadMsg('保存完了：'+status.saved.length+'枚\\nフォルダURL：'+status.folderUrl);
       $('uploadStart').textContent='保存完了';$('uploadStart').disabled=true;

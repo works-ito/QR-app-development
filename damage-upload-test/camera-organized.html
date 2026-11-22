@@ -145,7 +145,10 @@ $('uploadStart').onclick=async()=>{
         if(savedBefore.has(i)){i++;continue}
         const blob=await smallEnough(images[i].blob);
         if(batch.length&&batchBytes+blob.size>maxBatchBytes)break;
-        if(blob.size>maxBatchBytes){error='#'+i+'：画像が4MBを超えています';break}
+        if(blob.size>maxBatchBytes){
+          // 4MiB超は従来の単写真APIへフォールバック（上限5MiB）。
+          batch.push({index:i,blob,single:true});i++;break
+        }
         batch.push({index:i,blob});batchBytes+=blob.size;i++;
       }
       if(error)break;
@@ -154,8 +157,13 @@ $('uploadStart').onclick=async()=>{
       try{
         const payload=[];
         for(const p of batch)payload.push({index:p.index,base64:await base64Of(p.blob),expectedBytes:p.blob.size});
-        const result=await api({action:'organizedBatchUpload',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim(),photos:payload});
-        done+=result.saved.length;
+        if(batch[0].single){
+          await api({action:'organizedUpload',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim(),...payload[0]});
+          done++;
+        }else{
+          const result=await api({action:'organizedBatchUpload',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim(),photos:payload});
+          done+=result.saved.length;
+        }
       }catch(e){error=e.message;break}
     }
     const status=await api({action:'organizedStatus',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim()});

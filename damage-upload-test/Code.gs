@@ -262,6 +262,8 @@ function organizedUpload_(sessionId,token,siteName,index,base64,expectedBytes) {
  * 途中失敗時は保存済み分を残し、呼び出し側がstatusで照合して手動再開する。
  */
 function organizedBatchUpload_(sessionId,token,siteName,photos) {
+  const serverStart=Date.now();
+  const metrics={decodeMs:0,folderMs:0,lockMs:0,lookupMs:0,writeMs:0,otherMs:0};
   if(!Array.isArray(photos)||photos.length<1||photos.length>MAX_BATCH_COUNT_)throw Error('一括送信の枚数が不正です');
   let total=0;
   const indexes=new Set();
@@ -274,29 +276,41 @@ function organizedBatchUpload_(sessionId,token,siteName,photos) {
     total+=expectedBytes;
     if(total>MAX_BATCH_BYTES_)throw Error('一括送信の合計容量が4MBを超えています');
     if(typeof p.base64!=='string'||p.base64.length>Math.ceil(expectedBytes*4/3)+8)throw Error('Base64画像サイズが不正です');
+    const decodeStart=Date.now();
     const bytes=Utilities.base64Decode(p.base64);
+    metrics.decodeMs+=Date.now()-decodeStart;
     if(bytes.length!==expectedBytes)throw Error('画像サイズが一致しません');
     if((bytes[0]&255)!==255||(bytes[1]&255)!==216||(bytes[bytes.length-2]&255)!==255||(bytes[bytes.length-1]&255)!==217)throw Error('JPEG形式ではありません');
     return {index,filename,expectedBytes,bytes};
   });
+  let t=Date.now();
   const folder=organizedFolder_(sessionId);
+  metrics.folderMs=Date.now()-t;
   const lock=LockService.getScriptLock();
+  t=Date.now();
   lock.waitLock(25000);
+  metrics.lockMs=Date.now()-t;
   try{
     const saved=[];
     for(const p of decoded){
+      t=Date.now();
       const existing=folder.getFilesByName(p.filename);
-      let file,alreadySaved=false;
-      if(existing.hasNext()){
+      const alreadySaved=existing.hasNext();
+      metrics.lookupMs+=Date.now()-t;
+      let file;
+      if(alreadySaved){
         file=existing.next();
         if(file.getSize()!==p.expectedBytes)throw Error('同番号に異なるサイズの写真が保存されています');
-        alreadySaved=true;
       }else{
+        t=Date.now();
         file=folder.createFile(Utilities.newBlob(p.bytes,'image/jpeg',p.filename));
+        metrics.writeMs+=Date.now()-t;
       }
       saved.push({index:p.index,fileId:file.getId(),alreadySaved});
     }
-    return {saved};
+    const serverMs=Date.now()-serverStart;
+    metrics.otherMs=Math.max(0,serverMs-metrics.decodeMs-metrics.folderMs-metrics.lockMs-metrics.lookupMs-metrics.writeMs);
+    return {saved,serverMs,metrics};
   }finally{lock.releaseLock()}
 }
 

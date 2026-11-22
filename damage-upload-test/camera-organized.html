@@ -55,7 +55,7 @@ $('damageFileBtn').onclick=()=>$('damageFiles').click();$('damageFiles').onchang
 $('toggleGallery').onclick=()=>{galleryOpen=!galleryOpen;$('gallery').classList.toggle('hidden',!galleryOpen);$('toggleGallery').textContent=galleryOpen?'写真一覧を閉じる':'必要な時だけ写真を確認';refresh()};
 $('finish').onclick=()=>{stop();setStep(4);$('summary').textContent='伝票 1枚 ＋ 破損写真 '+photos.length+'枚（合計 '+(1+photos.length)+'枚）';message('撮影テスト完了。サーバーには送信していません。')};
 $('backDamage').onclick=()=>{setStep(3);message('破損写真の撮影を再開できます。')};
-$('resetAll').onclick=()=>{stop();discard(ticketSource);discard(ticket);photos.forEach(discard);ticketSource=ticket=null;photos=[];setDamageZoom(1);timingStarted=0;uploadAttempted=false;$('timingReport').textContent='送信時間：未計測';uploadSession=null;uploadToken=null;uploadNext=0;$('customerSearch').disabled=false;$('returnDate').disabled=false;$('siteName').disabled=false;$('siteName').value='';$('uploadStart').disabled=false;$('uploadStart').textContent='指定フォルダへ写真を送信';$('checkSaved').disabled=true;uploadMsg('未送信');selectedCustomer=null;$('customerSearch').value='';$('customerSelected').textContent='取引先未選択';renderCustomers();galleryOpen=false;$('gallery').classList.add('hidden');setStep(1);refresh();message('最初から撮影できます。')};
+$('resetAll').onclick=()=>{stop();discard(ticketSource);discard(ticket);photos.forEach(discard);ticketSource=ticket=null;photos=[];setDamageZoom(1);phaseTimes=null;uploadAttempted=false;$('timingReport').textContent='送信時間：未計測';uploadSession=null;uploadToken=null;uploadNext=0;$('customerSearch').disabled=false;$('returnDate').disabled=false;$('siteName').disabled=false;$('siteName').value='';$('uploadStart').disabled=false;$('uploadStart').textContent='指定フォルダへ写真を送信';$('checkSaved').disabled=true;uploadMsg('未送信');selectedCustomer=null;$('customerSearch').value='';$('customerSelected').textContent='取引先未選択';renderCustomers();galleryOpen=false;$('gallery').classList.add('hidden');setStep(1);refresh();message('最初から撮影できます。')};
 $('closeLightbox').onclick=()=>$('lightbox').close();$('lightbox').addEventListener('close',()=>{$('lightboxImage').removeAttribute('src');selected=null});
 $('saveImage').onclick=()=>{if(selected===null)return;const a=document.createElement('a');a.href=photos[selected].url;a.download='works-damage-test-'+String(selected+1).padStart(2,'0')+'.jpg';a.click()};
 // 送信テスト: 撮影コードv0.7を維持し、POST保存のみ追加
@@ -65,8 +65,22 @@ let customers=[],selectedCustomer=null;
 $('returnDate').value=new Date(Date.now()+9*3600000).toISOString().slice(0,10);
 $('siteUnknown').onclick=()=>{$('siteName').value='現場不明';$('siteName').focus()};
 const uploadInfo=$('uploadInfo');
-let timingStarted=0,uploadAttempted=false;
-function showTiming(){if(timingStarted)$('timingReport').textContent='送信開始からの経過時間：約'+((performance.now()-timingStarted)/1000).toFixed(1)+'秒（フォルダ準備・保存確認を含む）'}
+let uploadAttempted=false;
+let phaseTimes=null;
+function showTiming(){
+  if(!phaseTimes)return;
+  const p=phaseTimes;
+  const fmt=n=>(n/1000).toFixed(2)+'秒';
+  const other=Math.max(0,p.total-p.folder-p.upload-p.verify-p.resume);
+  $('timingReport').textContent=
+    '今回の送信計測（ボタンを押してから）\n'+
+    'フォルダ準備：'+fmt(p.folder)+'\n'+
+    '写真変換・通信・保存：'+fmt(p.upload)+'（うち画像準備：'+fmt(p.prepare)+'／通信＋GAS：'+fmt(p.network)+'）\n'+
+    '保存状況の最終確認：'+fmt(p.verify)+'\n'+
+    (p.resume?'再開前の保存照会：'+fmt(p.resume)+'\n':'')+
+    'その他の画面処理：約'+fmt(other)+'\n'+
+    '合計：'+fmt(p.total)+(p.failed?'（途中でエラー）':'');
+}
 function normalizeCustomer(s){
   return String(s||'').normalize('NFKC').toLowerCase().replace(/[\s　・･.．]/g,'').replace(/[ぁ-ゖ]/g,c=>String.fromCharCode(c.charCodeAt(0)+96));
 }
@@ -118,24 +132,30 @@ async function smallEnough(blob){
 }
 $('uploadStart').onclick=async()=>{
   if(uploadRunning||!ticket)return;
-  if(!timingStarted)timingStarted=performance.now();uploadRunning=true;$('uploadStart').disabled=true;$('backDamage').disabled=true;$('resetAll').disabled=true;
+  const started=performance.now();phaseTimes={folder:0,upload:0,prepare:0,network:0,verify:0,resume:0,total:0,failed:false};uploadRunning=true;$('uploadStart').disabled=true;$('backDamage').disabled=true;$('resetAll').disabled=true;
   try{
     if(!uploadSession){
       uploadMsg('テスト用フォルダを作成中…');
       const customer=selectedCustomer,returnDate=$('returnDate').value,siteName=$('siteName').value.trim();
       if(!customer||!returnDate)throw Error('取引先を候補から選択し、返却日を入力してください');
       if(!siteName)throw Error('現場名を入力するか「現場不明」を押してください');
-      const start=await api({action:'organizedStart',customer,returnDate,siteName});
+      const folderStart=performance.now();
+      let start;
+      try{start=await api({action:'organizedStart',customer,returnDate,siteName})}
+      finally{phaseTimes.folder+=performance.now()-folderStart}
       uploadSession=start.sessionId;uploadToken=start.token;uploadNext=0;$('customerSearch').disabled=true;$('returnDate').disabled=true;$('siteName').disabled=true;$('checkSaved').disabled=false;
     }
     const images=[ticket,...photos];
     let savedBefore=new Set();
     if(uploadAttempted){
+      const resumeStart=performance.now();
       const before=await api({action:'organizedStatus',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim()});
+      phaseTimes.resume+=performance.now()-resumeStart;
       savedBefore=new Set(before.saved.map(x=>x.index));
     }
     uploadAttempted=true;
     let error=null,done=savedBefore.size;
+    const uploadStartTime=performance.now();
     const maxBatchBytes=4*1024*1024;
     for(let i=0;i<images.length;){
       if(savedBefore.has(i)){i++;continue}
@@ -156,7 +176,10 @@ $('uploadStart').onclick=async()=>{
       uploadMsg('まとめて送信中：'+done+' / '+images.length+'枚完了（今回'+batch.length+'枚）\n※エラー時は自動再送しません');
       try{
         const payload=[];
+        const prepStart=performance.now();
         for(const p of batch)payload.push({index:p.index,base64:await base64Of(p.blob),expectedBytes:p.blob.size});
+        phaseTimes.prepare+=performance.now()-prepStart;
+        const networkStart=performance.now();
         if(batch[0].single){
           await api({action:'organizedUpload',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim(),...payload[0]});
           done++;
@@ -164,9 +187,14 @@ $('uploadStart').onclick=async()=>{
           const result=await api({action:'organizedBatchUpload',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim(),photos:payload});
           done+=result.saved.length;
         }
-      }catch(e){error=e.message;break}
+        phaseTimes.network+=performance.now()-networkStart;
+      }catch(e){if(typeof networkStart!=='undefined')phaseTimes.network+=performance.now()-networkStart;error=e.message;break}
     }
-    const status=await api({action:'organizedStatus',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim()});
+    phaseTimes.upload=performance.now()-uploadStartTime;
+    const verifyStart=performance.now();
+    let status;
+    try{status=await api({action:'organizedStatus',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim()})}
+    finally{phaseTimes.verify+=performance.now()-verifyStart}
     const saved=new Set(status.saved.map(x=>x.index));
     let next=0;while(next<images.length&&saved.has(next))next++;
     uploadNext=next;
@@ -177,11 +205,10 @@ $('uploadStart').onclick=async()=>{
       uploadMsg('保存完了：'+status.saved.length+'枚\nフォルダURL：'+status.folderUrl);
       $('uploadStart').textContent='保存完了';$('uploadStart').disabled=true;
     }
-    showTiming();
   }catch(e){
-    if(timingStarted)showTiming();
+    phaseTimes.failed=true;
     uploadMsg('送信結果を確認できません：'+e.message+'\n「保存状況を確認」でDrive側の結果を確認してください。自動再送はしません。');
-  }finally{uploadRunning=false;$('backDamage').disabled=false;$('resetAll').disabled=false}
+  }finally{phaseTimes.total=performance.now()-started;showTiming();uploadRunning=false;$('backDamage').disabled=false;$('resetAll').disabled=false}
 };
 $('checkSaved').onclick=async()=>{
   if(!uploadSession||uploadRunning)return;

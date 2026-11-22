@@ -142,7 +142,7 @@ $('uploadStart').onclick=async()=>{
     let error=null;
     for(let i=0;i<images.length;i++){
       if(savedBefore.has(i))continue;
-      uploadMsg('順番に送信中：'+i+' / '+images.length+'枚\\n※エラー時は自動再送しません');
+      uploadMsg('順番に送信中：'+i+' / '+images.length+'枚\n※エラー時は自動再送しません');
       try{
         const t0=performance.now();
         const blob=await smallEnough(images[i].blob);
@@ -162,9 +162,9 @@ $('uploadStart').onclick=async()=>{
     uploadNext=next;
     if(error||saved.size!==images.length){
       $('uploadStart').disabled=false;$('uploadStart').textContent='未保存分を手動で送信';
-      uploadMsg('保存確認：'+status.saved.length+' / '+images.length+'枚\\n'+(error?'送信エラー：'+error+'\\n':'')+'未保存分はボタンで手動再開してください。\\n'+status.folderUrl);
+      uploadMsg('保存確認：'+status.saved.length+' / '+images.length+'枚\n'+(error?'送信エラー：'+error+'\n':'')+'未保存分はボタンで手動再開してください。\n'+status.folderUrl);
     }else{
-      uploadMsg('保存完了：'+status.saved.length+'枚\\nフォルダURL：'+status.folderUrl);
+      uploadMsg('保存完了：'+status.saved.length+'枚\nフォルダURL：'+status.folderUrl);
       $('uploadStart').textContent='保存完了';$('uploadStart').disabled=true;
     }
   }catch(e){

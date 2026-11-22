@@ -17,7 +17,7 @@
 <p class="muted" id="cameraDiagnostics">カメラ解像度：未確認</p><p class="stats" id="stats">破損写真 0枚 / 合計1枚</p><div class="actions"><button id="toggleGallery" class="secondary">必要な時だけ写真を確認</button></div><div class="hidden" id="gallery"><div class="grid" id="photoGrid"></div></div></section>
 <section class="card hidden" id="completeStage"><h2>④ 撮影完了・フォルダ振分テスト</h2>
 <div style="display:grid;gap:12px;margin:12px 0"><label>取引先検索（漢字・かな・カナ）<input id="customerSearch" type="search" autocomplete="off" placeholder="取引先名・かなで検索" style="width:100%;font-size:18px;padding:12px;border:1px solid #bcc9db;border-radius:9px"></label><div id="customerResults" style="max-height:230px;overflow:auto;border:1px solid #d4dce8;border-radius:10px;padding:5px"></div><div id="customerSelected" class="status">取引先未選択</div><button id="customerReload" class="secondary" type="button">取引先マスタを再読込</button><label>現場名（必須・略称OK）<input id="siteName" type="text" maxlength="60" autocomplete="off" placeholder="例：八潮解体" style="width:100%;font-size:18px;padding:12px;border:1px solid #bcc9db;border-radius:9px"></label><button id="siteUnknown" class="secondary" type="button">現場不明を入力</button><label>返却日<input id="returnDate" type="date" style="width:100%;font-size:18px;padding:12px;border:1px solid #bcc9db;border-radius:9px"></label></div>
-<p class="muted">保存先：テストルート / 年 / 月 / 取引先名 / 返却日。取引先マスタから候補を選択してください。手入力しただけでは確定しません。</p><div style="font-size:45px;text-align:center">✅</div><p id="summary" style="text-align:center;font-weight:700"></p><p class="muted">送信ボタンを押した場合のみ、テスト専用Google Driveフォルダへ保存します。通信失敗時は自動再送しません。</p><label style="display:block;margin:12px 0">保存方式（速度比較用）<select id="saveMethod" style="width:100%;font-size:17px;padding:10px;border:1px solid #bcc9db;border-radius:9px"><option value="driveApi">Drive API v3（新方式）</option><option value="driveApp">DriveApp（従来方式）</option></select></label><div class="actions"><button id="uploadStart">指定フォルダへ写真を送信</button><button id="checkSaved" class="secondary" disabled>保存状況を確認</button></div>
+<p class="muted">保存先：テストルート / 年 / 月 / 取引先名 / 返却日。取引先マスタから候補を選択してください。手入力しただけでは確定しません。</p><div style="font-size:45px;text-align:center">✅</div><p id="summary" style="text-align:center;font-weight:700"></p><p class="muted">送信ボタンを押した場合のみ、テスト専用Google Driveフォルダへ保存します。通信失敗時は自動再送しません。</p><div class="actions"><button id="uploadStart">指定フォルダへ写真を送信</button><button id="checkSaved" class="secondary" disabled>保存状況を確認</button></div>
 <div id="uploadInfo" class="status">未送信。伝票1枚から順番に送信します。</div>
 <div id="timingReport" class="status" style="white-space:pre-wrap">送信時間：未計測</div><div class="actions"><button id="backDamage" class="secondary">破損写真に戻る</button><button id="resetAll">最初から試す</button></div></section>
 <div id="status" class="status" role="status">準備完了。まず伝票撮影を試してください。</div>
@@ -55,7 +55,7 @@ $('damageFileBtn').onclick=()=>$('damageFiles').click();$('damageFiles').onchang
 $('toggleGallery').onclick=()=>{galleryOpen=!galleryOpen;$('gallery').classList.toggle('hidden',!galleryOpen);$('toggleGallery').textContent=galleryOpen?'写真一覧を閉じる':'必要な時だけ写真を確認';refresh()};
 $('finish').onclick=()=>{stop();setStep(4);$('summary').textContent='伝票 1枚 ＋ 破損写真 '+photos.length+'枚（合計 '+(1+photos.length)+'枚）';message('撮影テスト完了。サーバーには送信していません。')};
 $('backDamage').onclick=()=>{setStep(3);message('破損写真の撮影を再開できます。')};
-$('resetAll').onclick=()=>{stop();discard(ticketSource);discard(ticket);photos.forEach(discard);ticketSource=ticket=null;photos=[];setDamageZoom(1);phaseTimes=null;gasBatchMetrics=[];uploadAttempted=false;activeSaveMethod=null;$('saveMethod').disabled=false;$('timingReport').textContent='送信時間：未計測';uploadSession=null;uploadToken=null;uploadNext=0;$('customerSearch').disabled=false;$('returnDate').disabled=false;$('siteName').disabled=false;$('siteName').value='';$('uploadStart').disabled=false;$('uploadStart').textContent='指定フォルダへ写真を送信';$('checkSaved').disabled=true;uploadMsg('未送信');selectedCustomer=null;$('customerSearch').value='';$('customerSelected').textContent='取引先未選択';renderCustomers();galleryOpen=false;$('gallery').classList.add('hidden');setStep(1);refresh();message('最初から撮影できます。')};
+$('resetAll').onclick=()=>{stop();discard(ticketSource);discard(ticket);photos.forEach(discard);ticketSource=ticket=null;photos=[];setDamageZoom(1);phaseTimes=null;gasBatchMetrics=[];uploadAttempted=false;$('timingReport').textContent='送信時間：未計測';uploadSession=null;uploadToken=null;uploadNext=0;$('customerSearch').disabled=false;$('returnDate').disabled=false;$('siteName').disabled=false;$('siteName').value='';$('uploadStart').disabled=false;$('uploadStart').textContent='指定フォルダへ写真を送信';$('checkSaved').disabled=true;uploadMsg('未送信');selectedCustomer=null;$('customerSearch').value='';$('customerSelected').textContent='取引先未選択';renderCustomers();galleryOpen=false;$('gallery').classList.add('hidden');setStep(1);refresh();message('最初から撮影できます。')};
 $('closeLightbox').onclick=()=>$('lightbox').close();$('lightbox').addEventListener('close',()=>{$('lightboxImage').removeAttribute('src');selected=null});
 $('saveImage').onclick=()=>{if(selected===null)return;const a=document.createElement('a');a.href=photos[selected].url;a.download='works-damage-test-'+String(selected+1).padStart(2,'0')+'.jpg';a.click()};
 // 送信テスト: 撮影コードv0.7を維持し、POST保存のみ追加
@@ -66,7 +66,7 @@ $('returnDate').value=new Date(Date.now()+9*3600000).toISOString().slice(0,10);
 $('siteUnknown').onclick=()=>{$('siteName').value='現場不明';$('siteName').focus()};
 const uploadInfo=$('uploadInfo');
 let uploadAttempted=false;
-let activeSaveMethod=null;
+const activeSaveMethod='driveApi';
 let phaseTimes=null;
 let gasBatchMetrics=[];
 function showTiming(){
@@ -148,7 +148,6 @@ async function smallEnough(blob){
 }
 $('uploadStart').onclick=async()=>{
   if(uploadRunning||!ticket)return;
-  if(!activeSaveMethod){activeSaveMethod=$('saveMethod').value;$('saveMethod').disabled=true}
   const started=performance.now();phaseTimes={folder:0,upload:0,prepare:0,network:0,verify:0,resume:0,total:0,failed:false};gasBatchMetrics=[];uploadRunning=true;$('uploadStart').disabled=true;$('backDamage').disabled=true;$('resetAll').disabled=true;
   try{
     if(!uploadSession){

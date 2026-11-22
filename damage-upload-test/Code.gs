@@ -174,6 +174,14 @@ function startOrganized_(customer,returnDate,siteName) {
 function organizedFolder_(sessionId) {
   if(!/^[A-Za-z0-9_-]{10,128}$/.test(String(sessionId)))throw Error('不正なフォルダID');
   const f=DriveApp.getFolderById(sessionId);
+  // 検証済みフォルダのみ短時間キャッシュ。未検証IDは従来どおり階層を検査する。
+  const rootId=testRoot_().getId();
+  const cacheKey='damage_verified_folder_'+rootId+'_'+sessionId;
+  let cache=null;
+  try{cache=CacheService.getScriptCache()}catch(e){}
+  if(cache){
+    try{if(cache.get(cacheKey)==='ok')return f}catch(e){}
+  }
   const d=validDate_(f.getName());
   let current=f;
   for(const expected of [null,d.slice(5,7),d.slice(0,4),testRoot_().getName()]){
@@ -182,7 +190,8 @@ function organizedFolder_(sessionId) {
     current=parents.next();
     if(expected!==null && current.getName()!==expected)throw Error('フォルダ階層が不正です');
   }
-  if(current.getId()!==testRoot_().getId())throw Error('対象フォルダが管理外です');
+  if(current.getId()!==rootId)throw Error('対象フォルダが管理外です');
+  if(cache){try{cache.put(cacheKey,'ok',300)}catch(e){}}
   return f;
 }
 function organizedToken_(token) {

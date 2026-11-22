@@ -159,10 +159,12 @@ function startOrganized_(customer,returnDate,siteName) {
     // 同じ返却日フォルダで短縮識別子が衝突しないよう確認
     for(let tries=0;tries<20;tries++){
       const candidate=Utilities.getUuid().replace(/-/g,'').slice(0,20);
-      const prefix=candidate.slice(0,8)+'_';
+      const suffix='_'+candidate.slice(0,8)+'.jpg';
       const files=folder.getFiles();
       let collision=false;
-      while(files.hasNext())if(new RegExp('_'+candidate.slice(0,8)+'\\.jpg
+      while(files.hasNext()){
+        if(files.next().getName().endsWith(suffix)){collision=true;break}
+      }
       if(!collision){token=candidate;break}
     }
     if(!token)throw Error('送信識別子を確保できません');

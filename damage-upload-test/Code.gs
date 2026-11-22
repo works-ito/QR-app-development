@@ -40,7 +40,7 @@ function doPost(e) {
     if (data.action === 'organizedStart') return postReply_({ok:true,...startOrganized_(data.customer,data.returnDate,data.siteName)});
     if (data.action === 'organizedStatus') return postReply_({ok:true,...organizedStatus_(data.sessionId,data.token,data.siteName)});
     if (data.action === 'organizedUpload') return postReply_({ok:true,...organizedUpload_(data.sessionId,data.token,data.siteName,Number(data.index),data.base64,Number(data.expectedBytes))});
-    if (data.action === 'organizedBatchUpload') return postReply_({ok:true,...organizedBatchUpload_(data.sessionId,data.token,data.siteName,data.photos)});
+    if (data.action === 'organizedBatchUpload') return postReply_({ok:true,...organizedBatchUpload_(data.sessionId,data.token,data.siteName,data.photos,data.saveMethod)});
     return postReply_({ok:false,error:'UNSUPPORTED_ACTION'});
   } catch(err) {
     return postReply_({ok:false,error:String(err && err.message || err)});
@@ -261,7 +261,8 @@ function organizedUpload_(sessionId,token,siteName,index,base64,expectedBytes) {
  * 全画像を検証後、重複照会と書込を同一ロックで実行。
  * 途中失敗時は保存済み分を残し、呼び出し側がstatusで照合して手動再開する。
  */
-function organizedBatchUpload_(sessionId,token,siteName,photos) {
+function organizedBatchUpload_(sessionId,token,siteName,photos,saveMethod) {
+  const method=saveMethod==='driveApi'?'driveApi':'driveApp';
   const serverStart=Date.now();
   const metrics={decodeMs:0,folderMs:0,lockMs:0,lookupMs:0,writeMs:0,otherMs:0};
   if(!Array.isArray(photos)||photos.length<1||photos.length>MAX_BATCH_COUNT_)throw Error('一括送信の枚数が不正です');
@@ -303,14 +304,21 @@ function organizedBatchUpload_(sessionId,token,siteName,photos) {
         if(file.getSize()!==p.expectedBytes)throw Error('同番号に異なるサイズの写真が保存されています');
       }else{
         t=Date.now();
-        file=folder.createFile(Utilities.newBlob(p.bytes,'image/jpeg',p.filename));
+        if(method==='driveApi'){
+          if(typeof Drive==='undefined'||!Drive.Files||!Drive.Files.create)throw Error('Drive API v3サービスが未設定です');
+          const created=Drive.Files.create({name:p.filename,mimeType:'image/jpeg',parents:[folder.getId()]},Utilities.newBlob(p.bytes,'image/jpeg',p.filename),{fields:'id,name,size',supportsAllDrives:true});
+          if(!created||!created.id)throw Error('Drive APIから保存IDが返りませんでした');
+          file={getId:()=>created.id};
+        }else{
+          file=folder.createFile(Utilities.newBlob(p.bytes,'image/jpeg',p.filename));
+        }
         metrics.writeMs+=Date.now()-t;
       }
       saved.push({index:p.index,fileId:file.getId(),alreadySaved});
     }
     const serverMs=Date.now()-serverStart;
     metrics.otherMs=Math.max(0,serverMs-metrics.decodeMs-metrics.folderMs-metrics.lockMs-metrics.lookupMs-metrics.writeMs);
-    return {saved,serverMs,metrics};
+    return {saved,serverMs,metrics,saveMethod:method};
   }finally{lock.releaseLock()}
 }
 

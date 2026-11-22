@@ -16,7 +16,7 @@
 <section class="card hidden" id="damageStage"><h2>③ 破損写真を連続撮影</h2><p class="muted">スマホを縦に持ったまま、横長4:3の枠で撮影できます。破損写真は最大49枚。シャッターを押してもカメラは閉じません。</p><div class="view"><div class="viewport damage"><video id="damageVideo" playsinline autoplay muted class="hidden"></video><div class="hint" id="damageEmpty">カメラ未起動</div></div><div class="camera-actions"><span>撮影 <b id="damageCount">0</b>/49</span><button class="shutter" id="damageShutter" aria-label="破損写真撮影" disabled></button><button id="finish" class="secondary">終了</button></div></div><div class="actions"><button id="damageStart">連続撮影を開始</button><button class="secondary" id="damageFileBtn">写真から追加</button></div><input type="file" id="damageFiles" accept="image/*" multiple class="hidden">
 <p class="stats" id="stats">破損写真 0枚 / 合計1枚</p><div class="actions"><button id="toggleGallery" class="secondary">必要な時だけ写真を確認</button></div><div class="hidden" id="gallery"><div class="grid" id="photoGrid"></div></div></section>
 <section class="card hidden" id="completeStage"><h2>④ 撮影完了・フォルダ振分テスト</h2>
-<div style="display:grid;gap:12px;margin:12px 0"><label>取引先検索（漢字・かな・カナ）<input id="customerSearch" type="search" autocomplete="off" placeholder="取引先名・かなで検索" style="width:100%;font-size:18px;padding:12px;border:1px solid #bcc9db;border-radius:9px"></label><div id="customerResults" style="max-height:230px;overflow:auto;border:1px solid #d4dce8;border-radius:10px;padding:5px"></div><div id="customerSelected" class="status">取引先未選択</div><button id="customerReload" class="secondary" type="button">取引先マスタを再読込</button><label>返却日<input id="returnDate" type="date" style="width:100%;font-size:18px;padding:12px;border:1px solid #bcc9db;border-radius:9px"></label></div>
+<div style="display:grid;gap:12px;margin:12px 0"><label>取引先検索（漢字・かな・カナ）<input id="customerSearch" type="search" autocomplete="off" placeholder="取引先名・かなで検索" style="width:100%;font-size:18px;padding:12px;border:1px solid #bcc9db;border-radius:9px"></label><div id="customerResults" style="max-height:230px;overflow:auto;border:1px solid #d4dce8;border-radius:10px;padding:5px"></div><div id="customerSelected" class="status">取引先未選択</div><button id="customerReload" class="secondary" type="button">取引先マスタを再読込</button><label>現場名（必須・略称OK）<input id="siteName" type="text" maxlength="60" autocomplete="off" placeholder="例：八潮解体" style="width:100%;font-size:18px;padding:12px;border:1px solid #bcc9db;border-radius:9px"></label><button id="siteUnknown" class="secondary" type="button">現場不明を入力</button><label>返却日<input id="returnDate" type="date" style="width:100%;font-size:18px;padding:12px;border:1px solid #bcc9db;border-radius:9px"></label></div>
 <p class="muted">保存先：テストルート / 年 / 月 / 取引先名 / 返却日。取引先マスタから候補を選択してください。手入力しただけでは確定しません。</p><div style="font-size:45px;text-align:center">✅</div><p id="summary" style="text-align:center;font-weight:700"></p><p class="muted">送信ボタンを押した場合のみ、テスト専用Google Driveフォルダへ保存します。通信失敗時は自動再送しません。</p><div class="actions"><button id="uploadStart">指定フォルダへ写真を送信</button><button id="checkSaved" class="secondary" disabled>保存状況を確認</button></div>
 <div id="uploadInfo" class="status">未送信。伝票1枚から順番に送信します。</div>
 <div class="actions"><button id="backDamage" class="secondary">破損写真に戻る</button><button id="resetAll">最初から試す</button></div></section>
@@ -53,7 +53,7 @@ $('damageFileBtn').onclick=()=>$('damageFiles').click();$('damageFiles').onchang
 $('toggleGallery').onclick=()=>{galleryOpen=!galleryOpen;$('gallery').classList.toggle('hidden',!galleryOpen);$('toggleGallery').textContent=galleryOpen?'写真一覧を閉じる':'必要な時だけ写真を確認';refresh()};
 $('finish').onclick=()=>{stop();setStep(4);$('summary').textContent='伝票 1枚 ＋ 破損写真 '+photos.length+'枚（合計 '+(1+photos.length)+'枚）';message('撮影テスト完了。サーバーには送信していません。')};
 $('backDamage').onclick=()=>{setStep(3);message('破損写真の撮影を再開できます。')};
-$('resetAll').onclick=()=>{stop();discard(ticketSource);discard(ticket);photos.forEach(discard);ticketSource=ticket=null;photos=[];uploadSession=null;uploadToken=null;uploadNext=0;$('customerSearch').disabled=false;$('returnDate').disabled=false;$('uploadStart').disabled=false;$('uploadStart').textContent='指定フォルダへ写真を送信';$('checkSaved').disabled=true;uploadMsg('未送信');selectedCustomer=null;$('customerSearch').value='';$('customerSelected').textContent='取引先未選択';renderCustomers();galleryOpen=false;$('gallery').classList.add('hidden');setStep(1);refresh();message('最初から撮影できます。')};
+$('resetAll').onclick=()=>{stop();discard(ticketSource);discard(ticket);photos.forEach(discard);ticketSource=ticket=null;photos=[];uploadSession=null;uploadToken=null;uploadNext=0;$('customerSearch').disabled=false;$('returnDate').disabled=false;$('siteName').disabled=false;$('siteName').value='';$('uploadStart').disabled=false;$('uploadStart').textContent='指定フォルダへ写真を送信';$('checkSaved').disabled=true;uploadMsg('未送信');selectedCustomer=null;$('customerSearch').value='';$('customerSelected').textContent='取引先未選択';renderCustomers();galleryOpen=false;$('gallery').classList.add('hidden');setStep(1);refresh();message('最初から撮影できます。')};
 $('closeLightbox').onclick=()=>$('lightbox').close();$('lightbox').addEventListener('close',()=>{$('lightboxImage').removeAttribute('src');selected=null});
 $('saveImage').onclick=()=>{if(selected===null)return;const a=document.createElement('a');a.href=photos[selected].url;a.download='works-damage-test-'+String(selected+1).padStart(2,'0')+'.jpg';a.click()};
 // 送信テスト: 撮影コードv0.7を維持し、POST保存のみ追加
@@ -61,6 +61,7 @@ const UPLOAD_GAS='https://script.google.com/macros/s/AKfycbwJOcM-09S51ItbVrodWIc
 let uploadSession=null,uploadToken=null,uploadRunning=false,uploadNext=0;
 let customers=[],selectedCustomer=null;
 $('returnDate').value=new Date(Date.now()+9*3600000).toISOString().slice(0,10);
+$('siteUnknown').onclick=()=>{$('siteName').value='現場不明';$('siteName').focus()};
 const uploadInfo=$('uploadInfo');
 
 function normalizeCustomer(s){
@@ -118,19 +119,20 @@ $('uploadStart').onclick=async()=>{
   try{
     if(!uploadSession){
       uploadMsg('テスト用フォルダを作成中…');
-      const customer=selectedCustomer,returnDate=$('returnDate').value;
+      const customer=selectedCustomer,returnDate=$('returnDate').value,siteName=$('siteName').value.trim();
       if(!customer||!returnDate)throw Error('取引先を候補から選択し、返却日を入力してください');
-      const start=await api({action:'organizedStart',customer,returnDate});
-      uploadSession=start.sessionId;uploadToken=start.token;uploadNext=0;$('customerSearch').disabled=true;$('returnDate').disabled=true;$('checkSaved').disabled=false;
+      if(!siteName)throw Error('現場名を入力するか「現場不明」を押してください');
+      const start=await api({action:'organizedStart',customer,returnDate,siteName});
+      uploadSession=start.sessionId;uploadToken=start.token;uploadNext=0;$('customerSearch').disabled=true;$('returnDate').disabled=true;$('siteName').disabled=true;$('checkSaved').disabled=false;
     }
     const images=[ticket,...photos];
     for(let i=uploadNext;i<images.length;i++){
       uploadMsg((i+1)+' / '+images.length+' 枚目を送信中…\n※エラー時は自動再送しません');
       const blob=await smallEnough(images[i].blob);
-      await api({action:'organizedUpload',sessionId:uploadSession,token:uploadToken,index:i,base64:await base64Of(blob),expectedBytes:blob.size});
+      await api({action:'organizedUpload',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim(),index:i,base64:await base64Of(blob),expectedBytes:blob.size});
       uploadNext=i+1;
     }
-    const status=await api({action:'organizedStatus',sessionId:uploadSession,token:uploadToken});
+    const status=await api({action:'organizedStatus',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim()});
     uploadMsg('保存完了：'+status.saved.length+'枚\nフォルダURL：'+status.folderUrl);
     $('uploadStart').textContent='保存完了';$('uploadStart').disabled=true;
   }catch(e){
@@ -140,7 +142,7 @@ $('uploadStart').onclick=async()=>{
 $('checkSaved').onclick=async()=>{
   if(!uploadSession||uploadRunning)return;
   try{
-    const r=await api({action:'organizedStatus',sessionId:uploadSession,token:uploadToken});
+    const r=await api({action:'organizedStatus',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim()});
     const saved=new Set(r.saved.map(x=>x.index));
     const total=1+photos.length;
     uploadMsg('Drive保存確認：'+r.saved.length+' / '+total+'枚\n'+r.folderUrl+'\n保存済み番号：'+r.saved.map(x=>x.index).join(', '));

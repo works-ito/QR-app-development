@@ -39,7 +39,7 @@ const $=id=>document.getElementById(id);
 let stream=null,cameraType=null,ticketSource=null,ticket=null,direction=1,photos=[],busy=false,galleryOpen=false,selected=null,damageZoom=1;
 function message(m,error=false){$('status').textContent=m;$('status').className='status'+(error?' error':'')}
 function setStep(n){$('ticketGuide').classList.toggle('visible',n===1&&cameraType==='ticket'&&!!stream);$('ticketStage').classList.toggle('hidden',n>2);$('confirmStage').classList.toggle('hidden',n!==2);$('ticketCover').classList.toggle('hidden',n!==2);$('ticketCameraActions').classList.toggle('hidden',n===2);$('ticketInputActions').classList.toggle('hidden',n===2);$('ticketHelp').classList.toggle('hidden',n===2);$('damageStage').classList.toggle('hidden',n!==3);$('completeStage').classList.toggle('hidden',n!==4);for(let i=1;i<=4;i++)$('step'+i).classList.toggle('current',i===n)}
-function setDamageZoom(value){damageZoom=value;$('zoomToggle').textContent=value===1?'1×':'2×';$('zoomToggle').setAttribute('aria-pressed',String(value===2));$('damageVideo').style.transform=value===2?'scale(2)':'scale(1)'}
+function setDamageZoom(value){damageZoom=value;$('zoomToggle').textContent=value===1?'1×':'2×';$('zoomToggle').setAttribute('aria-pressed',String(value===2));$('damageVideo').style.transform='translate(-50%,-50%) scale('+value+')'}
 $('zoomToggle').onclick=()=>{setDamageZoom(damageZoom===1?2:1);message('破損写真：'+damageZoom+'倍で撮影します。')};
 function sizeCameraVideo(video){
   // iOSで再起動後に縦長映像が中央だけに表示される問題を防ぐ。

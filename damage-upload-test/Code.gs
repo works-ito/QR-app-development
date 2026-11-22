@@ -209,6 +209,7 @@ function organizedStatus_(sessionId,token,siteName) {
   return {sessionId,token,folderUrl:f.getUrl(),saved:organizedSaved_(f,token,siteName)};
 }
 function organizedUpload_(sessionId,token,siteName,index,base64,expectedBytes) {
+  const serverStart=Date.now();
   const filename=organizedName_(token,siteName,index);
   if(typeof base64!=='string'||base64.length>Math.ceil(MAX_PHOTO_BYTES_*4/3)+16)throw Error('画像が大きすぎます');
   if(!Number.isInteger(expectedBytes)||expectedBytes<4||expectedBytes>MAX_PHOTO_BYTES_)throw Error('画像サイズが不正です');
@@ -221,10 +222,10 @@ function organizedUpload_(sessionId,token,siteName,index,base64,expectedBytes) {
     if(existing.hasNext()){
       const file=existing.next();
       if(file.getSize()!==expectedBytes)throw Error('同番号に異なるサイズの写真が保存されています');
-      return {index,saved:true,alreadySaved:true,fileId:file.getId()};
+      return {index,saved:true,alreadySaved:true,fileId:file.getId(),serverMs:Date.now()-serverStart};
     }
     const file=f.createFile(Utilities.newBlob(bytes,'image/jpeg',filename));
-    return {index,saved:true,alreadySaved:false,fileId:file.getId()};
+    return {index,saved:true,alreadySaved:false,fileId:file.getId(),serverMs:Date.now()-serverStart};
   }finally{lock.releaseLock()}
 }
 

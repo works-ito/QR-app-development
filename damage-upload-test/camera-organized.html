@@ -55,7 +55,7 @@ $('damageFileBtn').onclick=()=>$('damageFiles').click();$('damageFiles').onchang
 $('toggleGallery').onclick=()=>{galleryOpen=!galleryOpen;$('gallery').classList.toggle('hidden',!galleryOpen);$('toggleGallery').textContent=galleryOpen?'写真一覧を閉じる':'必要な時だけ写真を確認';refresh()};
 $('finish').onclick=()=>{stop();setStep(4);$('summary').textContent='伝票 1枚 ＋ 破損写真 '+photos.length+'枚（合計 '+(1+photos.length)+'枚）';message('撮影テスト完了。サーバーには送信していません。')};
 $('backDamage').onclick=()=>{setStep(3);message('破損写真の撮影を再開できます。')};
-$('resetAll').onclick=()=>{stop();discard(ticketSource);discard(ticket);photos.forEach(discard);ticketSource=ticket=null;photos=[];setDamageZoom(1);phaseTimes=null;uploadAttempted=false;$('timingReport').textContent='送信時間：未計測';uploadSession=null;uploadToken=null;uploadNext=0;$('customerSearch').disabled=false;$('returnDate').disabled=false;$('siteName').disabled=false;$('siteName').value='';$('uploadStart').disabled=false;$('uploadStart').textContent='指定フォルダへ写真を送信';$('checkSaved').disabled=true;uploadMsg('未送信');selectedCustomer=null;$('customerSearch').value='';$('customerSelected').textContent='取引先未選択';renderCustomers();galleryOpen=false;$('gallery').classList.add('hidden');setStep(1);refresh();message('最初から撮影できます。')};
+$('resetAll').onclick=()=>{stop();discard(ticketSource);discard(ticket);photos.forEach(discard);ticketSource=ticket=null;photos=[];setDamageZoom(1);phaseTimes=null;gasBatchMetrics=[];uploadAttempted=false;$('timingReport').textContent='送信時間：未計測';uploadSession=null;uploadToken=null;uploadNext=0;$('customerSearch').disabled=false;$('returnDate').disabled=false;$('siteName').disabled=false;$('siteName').value='';$('uploadStart').disabled=false;$('uploadStart').textContent='指定フォルダへ写真を送信';$('checkSaved').disabled=true;uploadMsg('未送信');selectedCustomer=null;$('customerSearch').value='';$('customerSelected').textContent='取引先未選択';renderCustomers();galleryOpen=false;$('gallery').classList.add('hidden');setStep(1);refresh();message('最初から撮影できます。')};
 $('closeLightbox').onclick=()=>$('lightbox').close();$('lightbox').addEventListener('close',()=>{$('lightboxImage').removeAttribute('src');selected=null});
 $('saveImage').onclick=()=>{if(selected===null)return;const a=document.createElement('a');a.href=photos[selected].url;a.download='works-damage-test-'+String(selected+1).padStart(2,'0')+'.jpg';a.click()};
 // 送信テスト: 撮影コードv0.7を維持し、POST保存のみ追加
@@ -67,11 +67,16 @@ $('siteUnknown').onclick=()=>{$('siteName').value='現場不明';$('siteName').f
 const uploadInfo=$('uploadInfo');
 let uploadAttempted=false;
 let phaseTimes=null;
+let gasBatchMetrics=[];
 function showTiming(){
   if(!phaseTimes)return;
   const p=phaseTimes;
   const fmt=n=>(n/1000).toFixed(2)+'秒';
   const other=Math.max(0,p.total-p.folder-p.upload-p.verify-p.resume);
+  const sum=k=>gasBatchMetrics.reduce((n,r)=>n+(r.metrics?.[k]||0),0);
+  const server=gasBatchMetrics.reduce((n,r)=>n+(r.serverMs||0),0);
+  const gasOther=sum('otherMs');
+  const transit=Math.max(0,p.network-server);
   $('timingReport').textContent=
     '今回の送信計測（ボタンを押してから）\n'+
     'フォルダ準備：'+fmt(p.folder)+'\n'+
@@ -79,7 +84,17 @@ function showTiming(){
     '保存状況の最終確認：'+fmt(p.verify)+'\n'+
     (p.resume?'再開前の保存照会：'+fmt(p.resume)+'\n':'')+
     'その他の画面処理：約'+fmt(other)+'\n'+
-    '合計：'+fmt(p.total)+(p.failed?'（途中でエラー）':'');
+    '合計：'+fmt(p.total)+(p.failed?'（途中でエラー）':'')+'\n\n'+
+    '【GAS内部の内訳（送信'+gasBatchMetrics.length+'回分）】\n'+
+    'Base64デコード：'+fmt(sum('decodeMs'))+'\n'+
+    'フォルダ検証：'+fmt(sum('folderMs'))+'\n'+
+    'ロック待ち：'+fmt(sum('lockMs'))+'\n'+
+    '重複確認：'+fmt(sum('lookupMs'))+'\n'+
+    'Drive書き込み：'+fmt(sum('writeMs'))+'\n'+
+    'GASその他：約'+fmt(gasOther)+'\n'+
+    'GAS処理合計：'+fmt(server)+'\n'+
+    '通信・GAS起動・応答等の差分：約'+fmt(transit)+'\n'+
+    '※差分には通信以外の待機時間も含まれます。';
 }
 function normalizeCustomer(s){
   return String(s||'').normalize('NFKC').toLowerCase().replace(/[\s　・･.．]/g,'').replace(/[ぁ-ゖ]/g,c=>String.fromCharCode(c.charCodeAt(0)+96));
@@ -132,7 +147,7 @@ async function smallEnough(blob){
 }
 $('uploadStart').onclick=async()=>{
   if(uploadRunning||!ticket)return;
-  const started=performance.now();phaseTimes={folder:0,upload:0,prepare:0,network:0,verify:0,resume:0,total:0,failed:false};uploadRunning=true;$('uploadStart').disabled=true;$('backDamage').disabled=true;$('resetAll').disabled=true;
+  const started=performance.now();phaseTimes={folder:0,upload:0,prepare:0,network:0,verify:0,resume:0,total:0,failed:false};gasBatchMetrics=[];uploadRunning=true;$('uploadStart').disabled=true;$('backDamage').disabled=true;$('resetAll').disabled=true;
   try{
     if(!uploadSession){
       uploadMsg('テスト用フォルダを作成中…');
@@ -181,10 +196,12 @@ $('uploadStart').onclick=async()=>{
         phaseTimes.prepare+=performance.now()-prepStart;
         const networkStart=performance.now();
         if(batch[0].single){
-          await api({action:'organizedUpload',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim(),...payload[0]});
+          const result=await api({action:'organizedUpload',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim(),...payload[0]});
+          gasBatchMetrics.push(result);
           done++;
         }else{
           const result=await api({action:'organizedBatchUpload',sessionId:uploadSession,token:uploadToken,siteName:$('siteName').value.trim(),photos:payload});
+          gasBatchMetrics.push(result);
           done+=result.saved.length;
         }
         phaseTimes.network+=performance.now()-networkStart;

@@ -54,7 +54,11 @@ class CameraController {
     const video=this.video(this.kind),box=video.parentElement;
     const w=video.videoWidth,h=video.videoHeight;
     if(!w||!h||!box.clientWidth||!box.clientHeight)return;
-    const scale=Math.max(box.clientWidth/w,box.clientHeight/h);
+    const cropRatio=4/3;
+    const sourceRatio=w/h;
+    const visibleWidth=sourceRatio>cropRatio?h*cropRatio:w;
+    const visibleHeight=sourceRatio>cropRatio?h:w/cropRatio;
+    const scale=Math.max(box.clientWidth/visibleWidth,box.clientHeight/visibleHeight);
     video.style.width=Math.ceil(w*scale+1)+'px';
     video.style.height=Math.ceil(h*scale+1)+'px';
     video.style.transform='translate(-50%,-50%) scale('+this.zoom+')';
@@ -63,7 +67,7 @@ class CameraController {
     if(!this.isLive(kind))throw Error('カメラの映像がありません');
     const video=this.video(kind),w=video.videoWidth,h=video.videoHeight;
     if(!w||!h)throw Error('カメラ映像を取得できません');
-    const target=kind==='ticket'?Math.SQRT2:4/3;
+    const target=4/3;
     let sw=w,sh=h,sx=0,sy=0;
     if(w/h>target){sw=h*target;sx=(w-sw)/2;}
     else{sh=w/target;sy=(h-sh)/2;}

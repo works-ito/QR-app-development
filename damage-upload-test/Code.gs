@@ -35,9 +35,9 @@ function doPost(e) {
       return postReply_({ok:true,...r});
     }
     if (data.action === 'customers') return postReply_({ok:true,customers:customerMaster_()});
-    if (data.action === 'organizedStart') return postReply_({ok:true,...startOrganized_(data.customer,data.returnDate)});
-    if (data.action === 'organizedStatus') return postReply_({ok:true,...organizedStatus_(data.sessionId,data.token)});
-    if (data.action === 'organizedUpload') return postReply_({ok:true,...organizedUpload_(data.sessionId,data.token,Number(data.index),data.base64,Number(data.expectedBytes))});
+    if (data.action === 'organizedStart') return postReply_({ok:true,...startOrganized_(data.customer,data.returnDate,data.siteName)});
+    if (data.action === 'organizedStatus') return postReply_({ok:true,...organizedStatus_(data.sessionId,data.token,data.siteName)});
+    if (data.action === 'organizedUpload') return postReply_({ok:true,...organizedUpload_(data.sessionId,data.token,data.siteName,Number(data.index),data.base64,Number(data.expectedBytes))});
     return postReply_({ok:false,error:'UNSUPPORTED_ACTION'});
   } catch(err) {
     return postReply_({ok:false,error:String(err && err.message || err)});
@@ -143,7 +143,13 @@ function childFolder_(parent,name) {
   const it=parent.getFoldersByName(name);
   return it.hasNext()?it.next():parent.createFolder(name);
 }
-function startOrganized_(customer,returnDate) {
+function cleanSite_(name) {
+  const s=String(name||'').normalize('NFKC').trim();
+  if(!s||s.length>60||/[\\/<>:"|?*\x00-\x1f]/.test(s)||s==='.'||s==='..')throw Error('現場名が不正です');
+  return s;
+}
+function startOrganized_(customer,returnDate,siteName) {
+  cleanSite_(siteName);
   const c=cleanCustomer_(customer),d=validDate_(returnDate);
   const lock=LockService.getScriptLock();lock.waitLock(25000);
   try{
@@ -156,7 +162,81 @@ function startOrganized_(customer,returnDate) {
       const prefix=candidate.slice(0,8)+'_';
       const files=folder.getFiles();
       let collision=false;
-      while(files.hasNext())if(files.next().getName().startsWith(prefix)){collision=true;break}
+      while(files.hasNext())if(new RegExp('_'+candidate.slice(0,8)+'\\.jpg
+      if(!collision){token=candidate;break}
+    }
+    if(!token)throw Error('送信識別子を確保できません');
+    return {sessionId:folder.getId(),token,folderUrl:folder.getUrl(),saved:[]};
+  }finally{lock.releaseLock()}
+}
+function organizedFolder_(sessionId) {
+  if(!/^[A-Za-z0-9_-]{10,128}$/.test(String(sessionId)))throw Error('不正なフォルダID');
+  const f=DriveApp.getFolderById(sessionId);
+  const d=validDate_(f.getName());
+  let current=f;
+  for(const expected of [null,d.slice(5,7),d.slice(0,4),testRoot_().getName()]){
+    const parents=current.getParents();
+    if(!parents.hasNext())throw Error('対象フォルダが管理外です');
+    current=parents.next();
+    if(expected!==null && current.getName()!==expected)throw Error('フォルダ階層が不正です');
+  }
+  if(current.getId()!==testRoot_().getId())throw Error('対象フォルダが管理外です');
+  return f;
+}
+function organizedToken_(token) {
+  const t=String(token||'');
+  if(!/^[a-f0-9]{20}$/.test(t))throw Error('送信識別子が不正です');
+  return t;
+}
+function organizedName_(token,siteName,index) {
+  if(!Number.isInteger(index)||index<0||index>=MAX_PHOTOS_)throw Error('写真番号が不正です');
+  return cleanSite_(siteName)+'_'+('000'+index).slice(-3)+'_'+organizedToken_(token).slice(0,8)+'.jpg';
+}
+function organizedSaved_(folder,token,siteName) {
+  const suffix='_'+organizedToken_(token).slice(0,8)+'.jpg';
+  const site=cleanSite_(siteName),files=folder.getFiles(),out=[];
+  while(files.hasNext()){
+    const f=files.next(),name=f.getName();
+    if(name.startsWith(site+'_')&&name.endsWith(suffix)){
+      const number=name.slice(site.length+1,-suffix.length);
+      if(/^\\d{3}$/.test(number))out.push({index:Number(number),name,size:f.getSize()});
+    }
+  }
+  return out.sort((a,b)=>a.index-b.index);
+}
+function organizedStatus_(sessionId,token,siteName) {
+  const f=organizedFolder_(sessionId);
+  return {sessionId,token,folderUrl:f.getUrl(),saved:organizedSaved_(f,token,siteName)};
+}
+function organizedUpload_(sessionId,token,siteName,index,base64,expectedBytes) {
+  const filename=organizedName_(token,siteName,index);
+  if(typeof base64!=='string'||base64.length>Math.ceil(MAX_PHOTO_BYTES_*4/3)+16)throw Error('画像が大きすぎます');
+  if(!Number.isInteger(expectedBytes)||expectedBytes<4||expectedBytes>MAX_PHOTO_BYTES_)throw Error('画像サイズが不正です');
+  const bytes=Utilities.base64Decode(base64);
+  if(bytes.length!==expectedBytes)throw Error('画像サイズが一致しません');
+  if((bytes[0]&255)!==255||(bytes[1]&255)!==216||(bytes[bytes.length-2]&255)!==255||(bytes[bytes.length-1]&255)!==217)throw Error('JPEG形式ではありません');
+  const lock=LockService.getScriptLock();lock.waitLock(25000);
+  try{
+    const f=organizedFolder_(sessionId),existing=f.getFilesByName(filename);
+    if(existing.hasNext()){
+      const file=existing.next();
+      if(file.getSize()!==expectedBytes)throw Error('同番号に異なるサイズの写真が保存されています');
+      return {index,saved:true,alreadySaved:true,fileId:file.getId()};
+    }
+    const file=f.createFile(Utilities.newBlob(bytes,'image/jpeg',filename));
+    return {index,saved:true,alreadySaved:false,fileId:file.getId()};
+  }finally{lock.releaseLock()}
+}
+
+/** 既存在庫管理の取引先マスタを読み取り専用で取得する。A=正式名 B=略称 C=半角カナ */
+function customerMaster_() {
+  const id='1dNcTslp1MgJ5ro_58qw5YcbzR4aVN33N5DMXK_gX8ao';
+  const sh=SpreadsheetApp.openById(id).getSheetByName('取引先マスタ');
+  if(!sh)throw Error('取引先マスタが見つかりません');
+  const rows=sh.getRange(2,1,Math.max(1,sh.getLastRow()-1),3).getDisplayValues();
+  return rows.filter(r=>r[0]&&r[0].trim()).map(r=>({name:r[0].trim(),short:r[1].trim(),kana:r[2].trim()}));
+}
+).test(files.next().getName())){collision=true;break}
       if(!collision){token=candidate;break}
     }
     if(!token)throw Error('送信識別子を確保できません');

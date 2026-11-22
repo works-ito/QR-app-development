@@ -7,6 +7,8 @@
 const TEST_PREFIX_ = 'WORKS_DAMAGE_TEST_';
 const MAX_PHOTOS_ = 50;
 const MAX_PHOTO_BYTES_ = 5 * 1024 * 1024;
+const MAX_BATCH_BYTES_ = 4 * 1024 * 1024;
+const MAX_BATCH_COUNT_ = 3;
 
 /**
  * GitHub Pages からの接続確認専用。
@@ -38,6 +40,7 @@ function doPost(e) {
     if (data.action === 'organizedStart') return postReply_({ok:true,...startOrganized_(data.customer,data.returnDate,data.siteName)});
     if (data.action === 'organizedStatus') return postReply_({ok:true,...organizedStatus_(data.sessionId,data.token,data.siteName)});
     if (data.action === 'organizedUpload') return postReply_({ok:true,...organizedUpload_(data.sessionId,data.token,data.siteName,Number(data.index),data.base64,Number(data.expectedBytes))});
+    if (data.action === 'organizedBatchUpload') return postReply_({ok:true,...organizedBatchUpload_(data.sessionId,data.token,data.siteName,data.photos)});
     return postReply_({ok:false,error:'UNSUPPORTED_ACTION'});
   } catch(err) {
     return postReply_({ok:false,error:String(err && err.message || err)});
@@ -250,6 +253,50 @@ function organizedUpload_(sessionId,token,siteName,index,base64,expectedBytes) {
     const file=f.createFile(Utilities.newBlob(bytes,'image/jpeg',filename));
     metrics.writeMs=Date.now()-t;
     return {index,saved:true,alreadySaved:false,fileId:file.getId(),serverMs:Date.now()-serverStart,metrics};
+  }finally{lock.releaseLock()}
+}
+
+/**
+ * 最大3枚、JPEG合計4MiBの一括送信。
+ * 全画像を検証後、重複照会と書込を同一ロックで実行。
+ * 途中失敗時は保存済み分を残し、呼び出し側がstatusで照合して手動再開する。
+ */
+function organizedBatchUpload_(sessionId,token,siteName,photos) {
+  if(!Array.isArray(photos)||photos.length<1||photos.length>MAX_BATCH_COUNT_)throw Error('一括送信の枚数が不正です');
+  let total=0;
+  const indexes=new Set();
+  const decoded=photos.map(p=>{
+    const index=Number(p.index),expectedBytes=Number(p.expectedBytes);
+    const filename=organizedName_(token,siteName,index);
+    if(indexes.has(index))throw Error('写真番号が重複しています');
+    indexes.add(index);
+    if(!Number.isInteger(expectedBytes)||expectedBytes<4||expectedBytes>MAX_PHOTO_BYTES_)throw Error('画像サイズが不正です');
+    total+=expectedBytes;
+    if(total>MAX_BATCH_BYTES_)throw Error('一括送信の合計容量が4MBを超えています');
+    if(typeof p.base64!=='string'||p.base64.length>Math.ceil(expectedBytes*4/3)+8)throw Error('Base64画像サイズが不正です');
+    const bytes=Utilities.base64Decode(p.base64);
+    if(bytes.length!==expectedBytes)throw Error('画像サイズが一致しません');
+    if((bytes[0]&255)!==255||(bytes[1]&255)!==216||(bytes[bytes.length-2]&255)!==255||(bytes[bytes.length-1]&255)!==217)throw Error('JPEG形式ではありません');
+    return {index,filename,expectedBytes,bytes};
+  });
+  const folder=organizedFolder_(sessionId);
+  const lock=LockService.getScriptLock();
+  lock.waitLock(25000);
+  try{
+    const saved=[];
+    for(const p of decoded){
+      const existing=folder.getFilesByName(p.filename);
+      let file,alreadySaved=false;
+      if(existing.hasNext()){
+        file=existing.next();
+        if(file.getSize()!==p.expectedBytes)throw Error('同番号に異なるサイズの写真が保存されています');
+        alreadySaved=true;
+      }else{
+        file=folder.createFile(Utilities.newBlob(p.bytes,'image/jpeg',p.filename));
+      }
+      saved.push({index:p.index,fileId:file.getId(),alreadySaved});
+    }
+    return {saved};
   }finally{lock.releaseLock()}
 }
 

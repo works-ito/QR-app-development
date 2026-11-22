@@ -229,12 +229,14 @@ function organizedUpload_(sessionId,token,siteName,index,base64,expectedBytes) {
   metrics.decodeMs=Date.now()-t;
   if(bytes.length!==expectedBytes)throw Error('画像サイズが一致しません');
   if((bytes[0]&255)!==255||(bytes[1]&255)!==216||(bytes[bytes.length-2]&255)!==255||(bytes[bytes.length-1]&255)!==217)throw Error('JPEG形式ではありません');
+  // フォルダ階層の検証は読み取り専用なのでロック外で行う。
+  // 同じ写真番号の重複確認とDrive書込みは従来どおり一つのロック内に保持。
+  t=Date.now();
+  const f=organizedFolder_(sessionId);
+  metrics.folderMs=Date.now()-t;
   const lock=LockService.getScriptLock();
   t=Date.now();lock.waitLock(25000);metrics.lockMs=Date.now()-t;
   try{
-    t=Date.now();
-    const f=organizedFolder_(sessionId);
-    metrics.folderMs=Date.now()-t;
     t=Date.now();
     const existing=f.getFilesByName(filename);
     const alreadySaved=existing.hasNext();

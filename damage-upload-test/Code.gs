@@ -37,6 +37,7 @@ function doPost(e) {
       return postReply_({ok:true,...r});
     }
     if (data.action === 'customers') return postReply_({ok:true,customers:customerMaster_()});
+    if (data.action === 'organizedFinalize') return postReply_({ok:true,...organizedFinalize_(data)});
     if (data.action === 'organizedStart') return postReply_({ok:true,...startOrganized_(data.customer,data.returnDate,data.siteName)});
     if (data.action === 'organizedStatus') return postReply_({ok:true,...organizedStatus_(data.sessionId,data.token,data.siteName)});
     if (data.action === 'organizedUpload') return postReply_({ok:true,...organizedUpload_(data.sessionId,data.token,data.siteName,Number(data.index),data.base64,Number(data.expectedBytes))});
@@ -340,4 +341,59 @@ function customerMaster_() {
   if(!sh)throw Error('取引先マスタが見つかりません');
   const rows=sh.getRange(2,1,Math.max(1,sh.getLastRow()-1),3).getDisplayValues();
   return rows.filter(r=>r[0]&&r[0].trim()).map(r=>({name:r[0].trim(),short:r[1].trim(),kana:r[2].trim()}));
+}
+
+
+/**
+ * 検証版の一覧表登録。写真本体はDrive APIから直接保存済み。
+ * TEST_DAMAGE_INDEX_SHEET_ID が未設定なら新しい検証用スプレッドシートを作成する。
+ * 登録識別子は sessionId + token。再通知は同じ行を返し二重登録しない。
+ */
+function damageIndexSheet_(){
+ const props=PropertiesService.getScriptProperties();
+ let id=props.getProperty('TEST_DAMAGE_INDEX_SHEET_ID');
+ if(!id){
+   const ss=SpreadsheetApp.create('WORKS 破損写真一覧（検証用）');
+   id=ss.getId();props.setProperty('TEST_DAMAGE_INDEX_SHEET_ID',id);
+ }
+ const ss=SpreadsheetApp.openById(id);
+ let sh=ss.getSheetByName('破損写真一覧');
+ if(!sh){
+   sh=ss.insertSheet('破損写真一覧');
+   sh.appendRow(['登録日時','返却日','取引先名','登録番号','写真枚数','送信者','保存先URL','請求資料作成','送信ID','現場名','状態']);
+   sh.setFrozenRows(1);
+   sh.getRange('H2:H1000').insertCheckboxes();
+ }
+ return {sheet:sh,url:ss.getUrl()};
+}
+function organizedFinalize_(data){
+ const sessionId=String(data.sessionId||''),token=organizedToken_(data.token);
+ const customer=cleanCustomer_(data.customer),returnDate=validDate_(data.returnDate);
+ const siteName=cleanSite_(data.siteName),sender=String(data.sender||'').normalize('NFKC').trim();
+ if(!sender||sender.length>60||/[\x00-\x1f]/.test(sender))throw Error('送信者名が不正です');
+ const count=Number(data.photoCount);
+ if(!Number.isInteger(count)||count<1||count>MAX_PHOTOS_)throw Error('写真枚数が不正です');
+ const folder=organizedFolder_(sessionId);
+ if(folder.getName()!==returnDate)throw Error('返却日とフォルダが一致しません');
+ const customerParents=folder.getParents();
+ if(!customerParents.hasNext()||customerParents.next().getName()!==customer)throw Error('取引先とフォルダが一致しません');
+ const lock=LockService.getScriptLock();lock.waitLock(25000);
+ try{
+   const found=organizedSaved_(folder,token,siteName);
+   const indices=new Set(found.map(x=>x.index));
+   if(indices.size!==count||Array.from({length:count},(_,i)=>i).some(i=>!indices.has(i)))throw Error('Drive上の写真枚数が一致しません。登録を中止しました');
+   const {sheet,url}=damageIndexSheet_();
+   const key=sessionId+'_'+token;
+   const last=sheet.getLastRow();
+   if(last>=2){
+     const keys=sheet.getRange(2,9,last-1,1).getValues();
+     const i=keys.findIndex(row=>row[0]===key);
+     if(i>=0)return {registered:true,alreadyRegistered:true,registrationNo:String(sheet.getRange(i+2,4).getValue()),sheetUrl:url};
+   }
+   const registrationNo='DMG-'+Utilities.formatDate(new Date(),'Asia/Tokyo','yyyyMMdd')+'-'+token.slice(0,8).toUpperCase();
+   sheet.appendRow([new Date(),returnDate,customer,registrationNo,count,sender,folder.getUrl(),false,key,siteName,'保存完了']);
+   const row=sheet.getLastRow();
+   sheet.getRange(row,8).insertCheckboxes();
+   return {registered:true,alreadyRegistered:false,registrationNo,sheetUrl:url};
+ }finally{lock.releaseLock()}
 }

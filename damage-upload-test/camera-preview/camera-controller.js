@@ -52,12 +52,15 @@ class CameraController {
   layout(){
     if(!this.kind)return;
     const video=this.video(this.kind),box=video.parentElement;
-    if(!video.videoWidth||!video.videoHeight||!box.clientWidth||!box.clientHeight)return;
-    // The viewport is always 4:3. CSS object-fit:cover crops the native
-    // camera image without changing its aspect ratio, including after restart.
-    video.style.width='100%';
-    video.style.height='100%';
-    video.style.objectFit='cover';
+    const w=video.videoWidth,h=video.videoHeight;
+    const boxW=box.clientWidth,boxH=box.clientHeight;
+    if(!w||!h||!boxW||!boxH)return;
+    // Scale the *native* video aspect ratio to cover the 4:3 viewport.
+    // Never stretch the camera frame or leave letterbox bars.
+    const scale=Math.max(boxW/w,boxH/h);
+    video.style.width=Math.ceil(w*scale+2)+'px';
+    video.style.height=Math.ceil(h*scale+2)+'px';
+    video.style.objectFit='contain';
     video.style.transform='translate(-50%,-50%) scale('+this.zoom+')';
   }
   async capture(kind){

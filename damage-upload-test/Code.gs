@@ -362,7 +362,7 @@ function damageIndexSheet_(){
    sh=ss.insertSheet('破損写真一覧');
    sh.appendRow(['登録日時','返却日','取引先名','登録番号','写真枚数','送信者','保存先URL','請求資料作成','送信ID','現場名','状態']);
    sh.setFrozenRows(1);
-   sh.getRange('H2:H1000').insertCheckboxes();
+
  }
  return {sheet:sh,url:ss.getUrl()};
 }
@@ -391,8 +391,11 @@ function organizedFinalize_(data){
      if(i>=0)return {registered:true,alreadyRegistered:true,registrationNo:String(sheet.getRange(i+2,4).getValue()),sheetUrl:url};
    }
    const registrationNo='DMG-'+Utilities.formatDate(new Date(),'Asia/Tokyo','yyyyMMdd')+'-'+token.slice(0,8).toUpperCase();
-   sheet.appendRow([new Date(),returnDate,customer,registrationNo,count,sender,folder.getUrl(),false,key,siteName,'保存完了']);
-   const row=sheet.getLastRow();
+   const dates=sheet.getRange(1,1,Math.max(1,last),1).getValues();
+   let row=dates.length+1;
+   while(row>2 && dates[row-2][0]==='')row--;
+   if(row>sheet.getMaxRows())sheet.insertRowsAfter(sheet.getMaxRows(),1);
+   sheet.getRange(row,1,1,11).setValues([[new Date(),returnDate,customer,registrationNo,count,sender,folder.getUrl(),false,key,siteName,'保存完了']]);
    sheet.getRange(row,8).insertCheckboxes();
    return {registered:true,alreadyRegistered:false,registrationNo,sheetUrl:url};
  }finally{lock.releaseLock()}

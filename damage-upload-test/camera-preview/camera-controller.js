@@ -52,7 +52,11 @@ class CameraController {
   }
   layout(){ /* Canvas preview owns visible crop; no video transforms needed. */ }
   crop(w,h,kind){
-    const {sx,sy,sw,sh}=this.crop(w,h,kind);
+    const target=4/3;
+    let sw=w,sh=h,sx=0,sy=0;
+    if(w/h>target){sw=h*target;sx=(w-sw)/2;}
+    else{sh=w/target;sy=(h-sh)/2;}
+    if(kind==='damage'&&this.zoom===2){sw/=2;sh/=2;sx=(w-sw)/2;sy=(h-sh)/2;}
     return {sx,sy,sw,sh};
   }
   stopPreview(){

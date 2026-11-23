@@ -39,7 +39,7 @@
 <div id="status" class="status" role="status">準備完了。まず伝票撮影を試してください。</div>
 <footer>送信検証用です。テスト用の紙・画像のみを使ってください。送信した写真はGoogle Driveのテスト専用フォルダに保存されます。Android・iPhoneで撮影方向、画質、伝票の撮り直し後も枠の大きさが変わらないことを確認してください。</footer>
 <dialog id="lightbox"><div class="line"><b id="lightboxTitle">写真</b><button class="secondary" id="closeLightbox">閉じる</button></div><img id="lightboxImage" alt="写真拡大"><div class="actions"><button id="saveImage" class="secondary">この写真を保存</button></div></dialog>
-<script src="./camera-controller.js?v=16"></script>
+<script src="./camera-controller.js?v=17"></script>
 <script>
 (()=>{'use strict';
 const $=id=>document.getElementById(id);
@@ -74,7 +74,7 @@ async function start(kind){
   try{
     const started=await camera.start(kind);if(!started)return;
     const video=camera.video(kind);
-    if(kind==='damage'){const track=camera.stream.getVideoTracks()[0],settings=track?.getSettings?.()||{};$('cameraDiagnostics').textContent='カメラ映像：'+video.videoWidth+'×'+video.videoHeight+' px ／ 実取得：'+(settings.width||'?')+'×'+(settings.height||'?')+' px ／ JPEG品質100%';}
+    if(kind==='damage'){const track=camera.stream.getVideoTracks()[0],settings=track?.getSettings?.()||{};$('cameraDiagnostics').textContent='カメラ映像：'+video.videoWidth+'×'+video.videoHeight+' px ／ 実取得：'+(settings.width||'?')+'×'+(settings.height||'?')+' px ／ JPEG品質95%';}
     video.classList.remove('hidden');$(kind==='ticket'?'ticketEmpty':'damageEmpty').classList.add('hidden');$(kind==='ticket'?'ticketShutter':'damageShutter').disabled=false;
     if(kind==='ticket'){$('ticketStart').classList.add('hidden');$('ticketGuide').classList.add('visible')}
     camera.layout();
@@ -83,7 +83,7 @@ async function start(kind){
     message(kind==='ticket'?'伝票を白い枠内に収めて撮影してください。':'連続撮影できます。');
   }catch(e){stop();message('カメラ起動失敗: '+(e.message||e.name||'不明')+'。アクセス許可を確認してください。',true)}
 }
-function jpeg(canvas){return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('JPEG変換に失敗しました')),'image/jpeg',1))}
+function jpeg(canvas){return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('JPEG変換に失敗しました')),'image/jpeg',.95))}
 function makeShot(blob,w,h){return{blob,url:URL.createObjectURL(blob),w,h}}
 async function fromVideo(kind){const shot=await camera.capture(kind);return makeShot(shot.blob,shot.width,shot.height)}
 async function fromFile(file){const bitmap=await createImageBitmap(file);try{const scale=Math.min(1,2400/Math.max(bitmap.width,bitmap.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(bitmap.width*scale));c.height=Math.max(1,Math.round(bitmap.height*scale));c.getContext('2d',{alpha:false}).drawImage(bitmap,0,0,c.width,c.height);const b=await jpeg(c),out=makeShot(b,c.width,c.height);c.width=c.height=0;return out}finally{bitmap.close()}}

@@ -34,7 +34,7 @@
 <section class="card hidden" id="completeStage"><h2>④ 写真を送信</h2>
 <div style="display:grid;gap:12px;margin:12px 0"><label>取引先検索（漢字・かな・カナ）<input id="customerSearch" type="search" autocomplete="off" placeholder="取引先名・かなで検索" style="width:100%;font-size:18px;padding:12px;border:1px solid #bcc9db;border-radius:9px"></label><div id="customerResults" style="max-height:230px;overflow:auto;border:1px solid #d4dce8;border-radius:10px;padding:5px"></div><div id="customerSelected" class="status">取引先未選択</div><button id="customerReload" class="secondary" type="button">取引先マスタを再読込</button><label>現場名（必須・略称OK）<input id="siteName" type="text" maxlength="60" autocomplete="off" placeholder="例：八潮解体" style="width:100%;font-size:18px;padding:12px;border:1px solid #bcc9db;border-radius:9px"></label><button id="siteUnknown" class="secondary" type="button">現場不明を入力</button><label>返却日<input id="returnDate" type="date" style="width:100%;font-size:18px;padding:12px;border:1px solid #bcc9db;border-radius:9px"></label></div>
 <p class="muted">保存先：テストルート / 年 / 月 / 取引先名 / 返却日。取引先マスタから候補を選択してください。手入力しただけでは確定しません。</p><div style="font-size:45px;text-align:center">✅</div><p id="summary" style="text-align:center;font-weight:700"></p><p class="muted">送信ボタンを押した場合のみ、テスト専用Google Driveフォルダへ保存します。通信失敗時は自動再送しません。</p><div class="actions"><button id="uploadStart">指定フォルダへ写真を送信</button><button id="checkSaved" class="secondary" disabled>保存状況を確認</button></div>
-<div class="status">【Drive直接送信・独立検証版】写真は指定したテストフォルダに直接保存。GASのフォルダ自動作成や一覧登録は行いません。</div><label>OAuthクライアントID<input id="directClient" style="width:100%;padding:12px;font-size:16px" placeholder="xxxx.apps.googleusercontent.com"></label><label>テスト専用フォルダID<input id="directFolder" style="width:100%;padding:12px;font-size:16px" placeholder="フォルダURLの /folders/ 以降"></label><div class="actions"><button id="directAuth" type="button" class="secondary">Googleで認証</button></div><p id="directAuthState" class="muted">未認証（IDはこの端末に保存され、次回自動入力されます）</p><div id="uploadInfo" class="status">未送信。伝票1枚から順番に送信します。</div>
+<div class="status">【ハイブリッド検証版】GASで年/月/取引先/返却日フォルダを準備し、写真はDrive APIで直接保存します。一覧表登録は未対応です。</div><label>OAuthクライアントID<input id="directClient" style="width:100%;padding:12px;font-size:16px" placeholder="xxxx.apps.googleusercontent.com"></label><p class="muted">保存先フォルダはGASが自動作成します。フォルダIDの入力は不要です。</p><div class="actions"><button id="directAuth" type="button" class="secondary">Googleで認証</button></div><p id="directAuthState" class="muted">未認証（IDはこの端末に保存され、次回自動入力されます）</p><div id="uploadInfo" class="status">未送信。伝票1枚から順番に送信します。</div>
 <div id="timingReport" class="status" style="white-space:pre-wrap">送信時間：未計測</div><div class="actions"><button id="backDamage" class="secondary">破損写真に戻る</button><button id="resetAll">最初からやり直す</button></div></section>
 <div id="status" class="status" role="status">準備完了。まず伝票撮影を試してください。</div>
 <footer>送信検証用です。テスト用の紙・画像のみを使ってください。送信した写真はGoogle Driveのテスト専用フォルダに保存されます。Android・iPhoneで撮影方向、画質、伝票の撮り直し後も枠の大きさが変わらないことを確認してください。</footer>
@@ -105,7 +105,7 @@ $('damageFileBtn').onclick=()=>$('damageFiles').click();$('damageFiles').onchang
 $('toggleGallery').onclick=()=>{galleryOpen=!galleryOpen;$('gallery').classList.toggle('hidden',!galleryOpen);$('toggleGallery').textContent=galleryOpen?'写真一覧を閉じる':'撮影した写真を確認';refresh()};
 $('finish').onclick=()=>{stop();setStep(4);$('summary').textContent='伝票 1枚 ＋ 破損写真 '+photos.length+'枚（合計 '+(1+photos.length)+'枚）';message('撮影が完了しました。送信内容を確認してください。')};
 $('backDamage').onclick=()=>{setStep(3);message('破損写真の撮影を再開できます。')};
-$('resetAll').onclick=()=>{clearTimeout(ticketDiagnosticTimer);stop();discard(ticketSource);discard(ticket);photos.forEach(discard);ticketSource=ticket=null;photos=[];setDamageZoom(1);phaseTimes=null;gasBatchMetrics=[];uploadAttempted=false;$('timingReport').textContent='送信時間：未計測';uploadSession=null;uploadToken=null;uploadNext=0;directRun=null;directFolderId=null;$('customerSearch').disabled=false;$('returnDate').disabled=false;$('siteName').disabled=false;$('siteName').value='';$('uploadStart').disabled=false;$('uploadStart').textContent='指定フォルダへ写真を送信';$('checkSaved').disabled=true;uploadMsg('未送信');selectedCustomer=null;$('customerSearch').value='';$('customerSelected').textContent='取引先未選択';renderCustomers();galleryOpen=false;$('gallery').classList.add('hidden');setStep(1);refresh();message('最初から撮影できます。')};
+$('resetAll').onclick=()=>{clearTimeout(ticketDiagnosticTimer);stop();discard(ticketSource);discard(ticket);photos.forEach(discard);ticketSource=ticket=null;photos=[];setDamageZoom(1);phaseTimes=null;gasBatchMetrics=[];uploadAttempted=false;$('timingReport').textContent='送信時間：未計測';uploadSession=null;uploadToken=null;uploadNext=0;directRun=null;directFolderId=null;directSession=null;directTokenName=null;$('customerSearch').disabled=false;$('returnDate').disabled=false;$('siteName').disabled=false;$('siteName').value='';$('uploadStart').disabled=false;$('uploadStart').textContent='指定フォルダへ写真を送信';$('checkSaved').disabled=true;uploadMsg('未送信');selectedCustomer=null;$('customerSearch').value='';$('customerSelected').textContent='取引先未選択';renderCustomers();galleryOpen=false;$('gallery').classList.add('hidden');setStep(1);refresh();message('最初から撮影できます。')};
 $('closeLightbox').onclick=()=>$('lightbox').close();$('lightbox').addEventListener('close',()=>{$('lightboxImage').removeAttribute('src');selected=null});
 $('saveImage').onclick=()=>{if(selected===null)return;const a=document.createElement('a');a.href=photos[selected].url;a.download='works-damage-test-'+String(selected+1).padStart(2,'0')+'.jpg';a.click()};
 // 送信テスト: 撮影コードv0.7を維持し、POST保存のみ追加
@@ -197,15 +197,14 @@ async function smallEnough(blob){
   }finally{bitmap.close()}
 }
 
-let directToken=null,directRun=null,directFolderId=null;
-const directSettingsKey='works-direct-test-settings-v1';
-try{const saved=JSON.parse(localStorage.getItem(directSettingsKey)||'{}');$('directClient').value=saved.client||'';$('directFolder').value=saved.folder||''}catch(e){}
-function rememberDirectSettings(){try{localStorage.setItem(directSettingsKey,JSON.stringify({client:$('directClient').value.trim(),folder:$('directFolder').value.trim()}))}catch(e){}}
-$('directClient').addEventListener('change',rememberDirectSettings);
-$('directFolder').addEventListener('change',rememberDirectSettings);
 
-$('directAuth').onclick=()=>{try{rememberDirectSettings();
- const id=$('directClient').value.trim();
+let directToken=null,directRun=null,directFolderId=null,directSession=null,directTokenName=null;
+const directSettingsKey='works-direct-test-settings-v1';
+try{const v=JSON.parse(localStorage.getItem(directSettingsKey)||'{}');$('directClient').value=v.client||''}catch(e){}
+function rememberDirectSettings(){try{localStorage.setItem(directSettingsKey,JSON.stringify({client:$('directClient').value.trim()}))}catch(e){}}
+$('directClient').addEventListener('change',rememberDirectSettings);
+$('directAuth').onclick=()=>{try{
+ rememberDirectSettings();const id=$('directClient').value.trim();
  if(!/^[\w-]+\.apps\.googleusercontent\.com$/.test(id))throw Error('OAuthクライアントIDを入力してください');
  if(!window.google?.accounts?.oauth2)throw Error('Google認証の読み込み待ちです');
  google.accounts.oauth2.initTokenClient({client_id:id,scope:'https://www.googleapis.com/auth/drive',callback:r=>{
@@ -213,12 +212,11 @@ $('directAuth').onclick=()=>{try{rememberDirectSettings();
  directToken=r.access_token;$('directAuthState').textContent='認証済み';
  }}).requestAccessToken({prompt:'consent'});
 }catch(e){$('directAuthState').textContent=e.message}};
-function directFolder(){const v=$('directFolder').value.trim();if(!/^[\w-]{10,128}$/.test(v))throw Error('テストフォルダIDを確認してください');return v}
 async function driveJson(response){const raw=await response.text();let v;try{v=JSON.parse(raw)}catch{v={message:raw.slice(0,200)}}if(!response.ok)throw Error('Drive API '+response.status+': '+(v.error?.message||v.message||'エラー'));return v}
-function directName(i){return 'WORKS_DIRECT_'+directRun+'_'+String(i).padStart(3,'0')+'.jpg'}
+function directName(i){return $('siteName').value.trim().normalize('NFKC')+'_'+String(i).padStart(3,'0')+'_'+directTokenName.slice(0,8)+'.jpg'}
 async function listSaved(folder){
- const q=new URLSearchParams({q:"'"+folder+"' in parents and trashed = false and name contains 'WORKS_DIRECT_"+directRun+"_'",fields:'nextPageToken,files(id,name,size)',page_size:'1000',supportsAllDrives:'true',includeItemsFromAllDrives:'true'});
- let pages='',files=[];do{if(pages)q.set('pageToken',pages);const v=await driveJson(await fetch('https://www.googleapis.com/drive/v3/files?'+q,{headers:{Authorization:'Bearer '+directToken}}));files.push(...(v.files||[]));pages=v.nextPageToken||''}while(pages);
+ const q=new URLSearchParams({q:"'"+folder+"' in parents and trashed = false and name contains '_"+directTokenName.slice(0,8)+".jpg'",fields:'nextPageToken,files(id,name,size)',page_size:'1000',supportsAllDrives:'true',includeItemsFromAllDrives:'true'});
+ let page='',files=[];do{if(page)q.set('pageToken',page);const v=await driveJson(await fetch('https://www.googleapis.com/drive/v3/files?'+q,{headers:{Authorization:'Bearer '+directToken}}));files.push(...(v.files||[]));page=v.nextPageToken||''}while(page);
  const map=new Map(files.map(f=>[f.name,f])),saved=new Set();[ticket,...photos].forEach((p,i)=>{const f=map.get(directName(i));if(f&&Number(f.size)===p.blob.size)saved.add(i)});return saved;
 }
 async function sendDirect(blob,i,folder){
@@ -232,23 +230,29 @@ $('uploadStart').onclick=async()=>{
  const started=performance.now();uploadRunning=true;$('uploadStart').disabled=true;$('backDamage').disabled=true;$('resetAll').disabled=true;
  try{
   if(!directToken)throw Error('先にGoogleで認証してください');
-  rememberDirectSettings();const folder=directFolder();if(directFolderId&&directFolderId!==folder)throw Error('途中で保存先フォルダを変更できません');
-  if(!selectedCustomer||!$('returnDate').value)throw Error('取引先と返却日を選択してください');
-  directFolderId=folder;if(!directRun)directRun=new Date().toISOString().replace(/[:.]/g,'-')+'_'+Math.random().toString(36).slice(2,8);
-  const images=[ticket,...photos],initial=performance.now(),saved=await listSaved(folder),initialMs=performance.now()-initial;
+  const customer=selectedCustomer,returnDate=$('returnDate').value,siteName=$('siteName').value.trim().normalize('NFKC');
+  if(!customer||!returnDate||!siteName)throw Error('取引先・返却日・現場名を設定してください');
+  if(!directSession){
+   uploadMsg('GASで顧客別フォルダを準備中…');
+   const startedFolder=performance.now();
+   const prepared=await api({action:'organizedStart',customer,returnDate,siteName});
+   directSession=prepared.sessionId;directTokenName=prepared.token;directFolderId=prepared.sessionId;
+   phaseTimes={folder:performance.now()-startedFolder};
+  }
+  const folder=directFolderId,images=[ticket,...photos],initial=performance.now(),saved=await listSaved(folder),initialMs=performance.now()-initial;
   let next=0,errors=[];const sendStart=performance.now();
-  async function worker(){while(next<images.length){const i=next++;if(saved.has(i))continue;try{await sendDirect(images[i].blob,i,folder);saved.add(i)}catch(e){errors.push('写真'+i+': '+e.message)}uploadMsg('送信中：'+saved.size+'/'+images.length+'枚\n経過：'+((performance.now()-sendStart)/1000).toFixed(2)+'秒')}}
+  async function worker(){while(next<images.length){const i=next++;if(saved.has(i))continue;try{await sendDirect(images[i].blob,i,folder);saved.add(i)}catch(e){errors.push('写真'+i+': '+e.message)}uploadMsg('顧客別フォルダへ送信中：'+saved.size+'/'+images.length+'枚\n経過：'+((performance.now()-sendStart)/1000).toFixed(2)+'秒')}}
   await Promise.all(Array.from({length:Math.min(3,images.length)},()=>worker()));
   const sendMs=performance.now()-sendStart,checkStart=performance.now(),verified=await listSaved(folder),checkMs=performance.now()-checkStart;
   const complete=verified.size===images.length;
-  uploadMsg('Drive保存照合：'+verified.size+'/'+images.length+'枚\n送信時間：'+(sendMs/1000).toFixed(2)+'秒\n事前確認：'+(initialMs/1000).toFixed(2)+'秒\n保存照合：'+(checkMs/1000).toFixed(2)+'秒\n全工程：'+((performance.now()-started)/1000).toFixed(2)+'秒\nエラー：'+errors.length+'件'+(errors.length?'\n'+errors.join('\n'):'')+'\nhttps://drive.google.com/drive/folders/'+folder);
+  uploadMsg('顧客別フォルダ保存照合：'+verified.size+'/'+images.length+'枚\n写真送信：'+(sendMs/1000).toFixed(2)+'秒\nフォルダ準備：'+((phaseTimes?.folder||0)/1000).toFixed(2)+'秒\n事前照合：'+(initialMs/1000).toFixed(2)+'秒\n保存照合：'+(checkMs/1000).toFixed(2)+'秒\n全工程：'+((performance.now()-started)/1000).toFixed(2)+'秒\nエラー：'+errors.length+'件'+(errors.length?'\n'+errors.join('\n'):'')+'\nhttps://drive.google.com/drive/folders/'+folder);
   $('timingReport').textContent='Drive直接送信：'+(sendMs/1000).toFixed(2)+'秒／全工程：'+((performance.now()-started)/1000).toFixed(2)+'秒';
   $('checkSaved').disabled=false;$('uploadStart').disabled=complete;$('uploadStart').textContent=complete?'保存完了':'未保存分を手動で送信';
   $('customerSearch').disabled=true;$('returnDate').disabled=true;$('siteName').disabled=true;
- }catch(e){uploadMsg('送信エラー：'+e.message+'\n自動再送しません。保存状況を確認してください。');$('uploadStart').disabled=false}
+ }catch(e){uploadMsg('送信エラー：'+e.message+'\n※GASで作成したフォルダに、認証したGoogleアカウントの追加権限が必要です。\n自動再送しません。保存状況を確認してください。');$('uploadStart').disabled=false}
  finally{uploadRunning=false;$('backDamage').disabled=false;$('resetAll').disabled=false}
 };
-$('checkSaved').onclick=async()=>{if(uploadRunning||!directRun||!directToken)return;try{const saved=await listSaved(directFolder()),total=1+photos.length;uploadMsg('Drive保存照合：'+saved.size+'/'+total+'枚');$('uploadStart').disabled=saved.size===total;$('uploadStart').textContent=saved.size===total?'保存完了':'未保存分を手動で送信'}catch(e){uploadMsg('照合エラー：'+e.message)}};
+$('checkSaved').onclick=async()=>{if(uploadRunning||!directSession||!directToken)return;try{const saved=await listSaved(directFolderId),total=1+photos.length;uploadMsg('顧客別フォルダ保存照合：'+saved.size+'/'+total+'枚');$('uploadStart').disabled=saved.size===total;$('uploadStart').textContent=saved.size===total?'保存完了':'未保存分を手動で送信'}catch(e){uploadMsg('照合エラー：'+e.message)}};
 window.addEventListener('pagehide',stop);window.addEventListener('resize',()=>{if(camera.active)camera.layout()});refresh();loadCustomers();
 })();
 </script></main></body></html>

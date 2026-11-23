@@ -203,15 +203,40 @@ const directSettingsKey='works-direct-test-settings-v1';
 try{const v=JSON.parse(localStorage.getItem(directSettingsKey)||'{}');$('directClient').value=v.client||''}catch(e){}
 function rememberDirectSettings(){try{localStorage.setItem(directSettingsKey,JSON.stringify({client:$('directClient').value.trim()}))}catch(e){}}
 $('directClient').addEventListener('change',rememberDirectSettings);
-$('directAuth').onclick=()=>{try{
- rememberDirectSettings();const id=$('directClient').value.trim();
- if(!/^[\w-]+\.apps\.googleusercontent\.com$/.test(id))throw Error('OAuthクライアントIDを入力してください');
- if(!window.google?.accounts?.oauth2)throw Error('Google認証の読み込み待ちです');
- google.accounts.oauth2.initTokenClient({client_id:id,scope:'https://www.googleapis.com/auth/drive',callback:r=>{
- if(r.error){$('directAuthState').textContent='認証失敗：'+r.error;return}
- directToken=r.access_token;$('directAuthState').textContent='認証済み';
- }}).requestAccessToken({prompt:'consent'});
-}catch(e){$('directAuthState').textContent=e.message}};
+
+let directAuthClient=null,directAuthPending=false,directTokenExpiry=0;
+function directAuthStatus(message){$('directAuthState').textContent=message}
+function directClientId(){const id=$('directClient').value.trim();if(!/^[\w-]+\.apps\.googleusercontent\.com$/.test(id))throw Error('OAuthクライアントIDを確認してください');return id}
+function directAcceptToken(r){
+ directAuthPending=false;
+ if(r.error){directToken=null;directAuthStatus('自動認証できませんでした。下の「Googleで認証」を押してください（'+r.error+'）');$('directAuth').classList.remove('hidden');return}
+ directToken=r.access_token;directTokenExpiry=Date.now()+Math.max(0,Number(r.expires_in||3600)-120)*1000;
+ directAuthStatus('認証済み'+(directAuthAttempted?'（自動取得成功）':'（手動認証）'));
+ $('directAuth').classList.add('hidden');
+}
+let directAuthAttempted=false;
+function directRequestToken(silent){
+ if(directAuthPending)return;
+ if(!window.google?.accounts?.oauth2)throw Error('Google認証ライブラリの読み込み待ちです');
+ const id=directClientId();rememberDirectSettings();
+ directAuthClient=google.accounts.oauth2.initTokenClient({
+  client_id:id,scope:'https://www.googleapis.com/auth/drive',
+  callback:directAcceptToken,
+  error_callback:e=>{directAuthPending=false;directAuthStatus('自動認証が利用できません。Googleで認証を押してください（'+(e.type||'popup_error')+'）');$('directAuth').classList.remove('hidden')}
+ });
+ directAuthPending=true;directAuthAttempted=silent;
+ directAuthStatus(silent?'Google認証を自動確認中…':'Googleの認証画面を開いています…');
+ // Silent token requests may be rejected by Safari popup restrictions; always leave manual fallback.
+ directAuthClient.requestAccessToken({prompt:silent?'':'select_account'});
+}
+$('directAuth').onclick=()=>{try{directRequestToken(false)}catch(e){directAuthPending=false;directAuthStatus(e.message)}};
+$('directClient').addEventListener('change',()=>{directToken=null;directAuthClient=null;directAuthStatus('ID変更後は再認証してください');$('directAuth').classList.remove('hidden')});
+function tryDirectSilentAuth(){
+ if(directToken&&Date.now()<directTokenExpiry)return;
+ if(!$('directClient').value.trim())return;
+ try{directRequestToken(true)}catch(e){directAuthPending=false;directAuthStatus('手動認証が必要です：'+e.message);$('directAuth').classList.remove('hidden')}
+}
+window.addEventListener('load',tryDirectSilentAuth);
 async function driveJson(response){const raw=await response.text();let v;try{v=JSON.parse(raw)}catch{v={message:raw.slice(0,200)}}if(!response.ok)throw Error('Drive API '+response.status+': '+(v.error?.message||v.message||'エラー'));return v}
 function directName(i){return $('siteName').value.trim().normalize('NFKC')+'_'+String(i).padStart(3,'0')+'_'+directTokenName.slice(0,8)+'.jpg'}
 async function listSaved(folder){
@@ -229,7 +254,7 @@ $('uploadStart').onclick=async()=>{
  if(uploadRunning||!ticket)return;
  const started=performance.now();uploadRunning=true;$('uploadStart').disabled=true;$('backDamage').disabled=true;$('resetAll').disabled=true;
  try{
-  if(!directToken)throw Error('先にGoogleで認証してください');
+  if(!directToken||Date.now()>=directTokenExpiry)throw Error('Google認証が必要です。「Googleで認証」を押してください');
   const customer=selectedCustomer,returnDate=$('returnDate').value,siteName=$('siteName').value.trim().normalize('NFKC');
   if(!customer||!returnDate||!siteName)throw Error('取引先・返却日・現場名を設定してください');
   if(!directSession){

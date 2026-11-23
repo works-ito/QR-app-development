@@ -24,6 +24,7 @@ class CameraController {
       video.srcObject=null;
       video.style.width='';
       video.style.height='';
+      video.style.objectFit='';
       video.style.transform='';
     }
     this.kind=null;
@@ -51,16 +52,9 @@ class CameraController {
   }
   layout(){
     if(!this.kind)return;
-    const video=this.video(this.kind),box=video.parentElement;
-    const w=video.videoWidth,h=video.videoHeight;
-    const boxW=box.clientWidth,boxH=box.clientHeight;
-    if(!w||!h||!boxW||!boxH)return;
-    // Scale the *native* video aspect ratio to cover the 4:3 viewport.
-    // Never stretch the camera frame or leave letterbox bars.
-    const scale=Math.max(boxW/w,boxH/h);
-    video.style.width=Math.ceil(w*scale+2)+'px';
-    video.style.height=Math.ceil(h*scale+2)+'px';
-    video.style.objectFit='contain';
+    // CSS owns viewport sizing and 4:3 cover crop.
+    // JavaScript only applies the optional 1x/2x zoom.
+    const video=this.video(this.kind);
     video.style.transform='translate(-50%,-50%) scale('+this.zoom+')';
   }
   async capture(kind){

@@ -25,6 +25,7 @@
 <div class="steps"><span id="step1" class="current">① 伝票撮影</span><span id="step2">② 伝票確認</span><span id="step3">③ 破損写真</span><span id="step4">④ 完了確認</span></div>
 <div class="card" id="stageHeading" aria-live="polite"><h2 id="stageTitle">① 返却伝票を撮影</h2><p class="muted" id="stageDescription">スマホは縦持ちのまま、伝票を白い枠内に収めて撮影してください。</p></div>
 <section class="card" id="ticketStage"><div id="ticketCaptureStage"><h2>① 返却伝票を撮影</h2><p class="muted">スマホは縦持ちのまま、伝票を白い枠内に収めて撮影してください。</p>
+<details id="ticketDiagnostics" style="margin:0 0 10px;font-size:12px"><summary style="cursor:pointer;color:#52657c">カメラ表示の診断情報（検証用）</summary><pre id="ticketDiagnosticsText" style="white-space:pre-wrap;overflow-wrap:anywhere;background:#f1f5fa;padding:8px;border-radius:6px">未計測</pre><button type="button" id="copyTicketDiagnostics" class="secondary" style="min-height:36px;font-size:13px">診断情報をコピー</button></details>
 <div class="view"><div class="viewport ticket-paper"><video id="ticketVideo" playsinline autoplay muted class="hidden"></video><div class="hint" id="ticketEmpty">カメラ未起動</div><div id="ticketGuide" class="ticket-guide" aria-hidden="true"><i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i><span class="ticket-guide-label">伝票の四隅を枠に合わせて撮影してください</span></div><div id="ticketCover" class="ticket-cover hidden"><img id="ticketPreview" alt="回転後の返却伝票"></div></div><div class="camera-actions" id="ticketCameraActions"><span>伝票 1枚</span><button class="shutter" id="ticketShutter" aria-label="伝票撮影" disabled></button><span aria-hidden="true" style="min-width:48px"></span></div></div>
 <div class="actions" id="ticketInputActions"><button id="ticketStart">カメラを起動</button><button id="ticketFileBtn" class="secondary">写真から選択</button></div><input type="file" id="ticketFile" accept="image/*" class="hidden">
 <p class="muted" id="ticketHelp">カメラで撮影するか、保存済みの写真を選択してください。</p></div><div class="ticket-confirm hidden" id="confirmStage"><h2>② 伝票写真を確認</h2><p class="muted">写真の向きと伝票全体が写っていることを確認してください。</p><div class="preview-frame"><img id="ticketConfirmPreview" alt="撮影した返却伝票" style="display:block;max-width:100%;max-height:50vh;margin:auto;object-fit:contain"></div><div class="actions"><button id="turn" class="secondary">向きを反転</button></div><p style="text-align:center;font-weight:700">この伝票写真でよろしいですか？</p><div class="actions"><button id="retry" class="secondary">撮り直す</button><button id="accept">次へ進む</button></div></div></section>
@@ -49,6 +50,24 @@ function setStep(n){const labels={1:['① 返却伝票を撮影','スマホは�
 function setDamageZoom(value){damageZoom=value;camera.setZoom(value);$('zoomToggle').textContent=value===1?'1×':'2×';$('zoomToggle').setAttribute('aria-pressed',String(value===2))}
 $('zoomToggle').onclick=()=>{setDamageZoom(damageZoom===1?2:1);message('破損写真：'+damageZoom+'倍で撮影します。')};
 function stop(){camera.stop();['ticketVideo','damageVideo'].forEach(id=>$(id).classList.add('hidden'));$('ticketEmpty').classList.remove('hidden');$('damageEmpty').classList.remove('hidden');$('ticketShutter').disabled=true;$('damageShutter').disabled=true;$('ticketStart').classList.remove('hidden');$('ticketGuide').classList.remove('visible')}
+let ticketStartCount=0;
+let ticketDiagnosticTimer=null;
+function recordTicketDiagnostics(label){
+  const video=$('ticketVideo'),box=video.parentElement,rect=video.getBoundingClientRect(),frame=box.getBoundingClientRect();
+  const style=getComputedStyle(video),track=camera.stream?.getVideoTracks()[0],settings=track?.getSettings?.()||{};
+  $('ticketDiagnosticsText').textContent=[
+    '状態: '+label+' / 伝票カメラ起動 '+ticketStartCount+'回目',
+    '映像: '+video.videoWidth+' × '+video.videoHeight,
+    'トラック: '+(settings.width||'?')+' × '+(settings.height||'?')+' / '+(settings.aspectRatio||'?'),
+    '撮影枠: '+frame.width.toFixed(1)+' × '+frame.height.toFixed(1),
+    'video表示: '+rect.width.toFixed(1)+' × '+rect.height.toFixed(1),
+    'CSS: object-fit='+style.objectFit+' / width='+style.width+' / height='+style.height,
+    '表示倍率: '+style.transform,
+    '映像状態: '+video.readyState+' / '+(video.paused?'停止':'再生中'),
+    '端末: '+navigator.userAgent
+  ].join('\n');
+}
+$('copyTicketDiagnostics').onclick=()=>{const value=$('ticketDiagnosticsText').textContent;if(navigator.clipboard?.writeText){navigator.clipboard.writeText(value).then(()=>message('診断情報をコピーしました。')).catch(()=>message('診断情報を選択してコピーしてください。'))}else{message('診断情報を選択してコピーしてください。')}};
 async function start(kind){
   stop();if(kind==='damage')setDamageZoom(1);
   try{
@@ -58,6 +77,7 @@ async function start(kind){
     video.classList.remove('hidden');$(kind==='ticket'?'ticketEmpty':'damageEmpty').classList.add('hidden');$(kind==='ticket'?'ticketShutter':'damageShutter').disabled=false;
     if(kind==='ticket'){$('ticketStart').classList.add('hidden');$('ticketGuide').classList.add('visible')}
     camera.layout();
+    if(kind==='ticket'){ticketStartCount++;recordTicketDiagnostics('起動直後');clearTimeout(ticketDiagnosticTimer);ticketDiagnosticTimer=setTimeout(()=>recordTicketDiagnostics('起動1秒後'),1000);}
     message(kind==='ticket'?'伝票を白い枠内に収めて撮影してください。':'連続撮影できます。');
   }catch(e){stop();message('カメラ起動失敗: '+(e.message||e.name||'不明')+'。アクセス許可を確認してください。',true)}
 }
@@ -83,7 +103,7 @@ $('damageFileBtn').onclick=()=>$('damageFiles').click();$('damageFiles').onchang
 $('toggleGallery').onclick=()=>{galleryOpen=!galleryOpen;$('gallery').classList.toggle('hidden',!galleryOpen);$('toggleGallery').textContent=galleryOpen?'写真一覧を閉じる':'撮影した写真を確認';refresh()};
 $('finish').onclick=()=>{stop();setStep(4);$('summary').textContent='伝票 1枚 ＋ 破損写真 '+photos.length+'枚（合計 '+(1+photos.length)+'枚）';message('撮影が完了しました。送信内容を確認してください。')};
 $('backDamage').onclick=()=>{setStep(3);message('破損写真の撮影を再開できます。')};
-$('resetAll').onclick=()=>{stop();discard(ticketSource);discard(ticket);photos.forEach(discard);ticketSource=ticket=null;photos=[];setDamageZoom(1);phaseTimes=null;gasBatchMetrics=[];uploadAttempted=false;$('timingReport').textContent='送信時間：未計測';uploadSession=null;uploadToken=null;uploadNext=0;$('customerSearch').disabled=false;$('returnDate').disabled=false;$('siteName').disabled=false;$('siteName').value='';$('uploadStart').disabled=false;$('uploadStart').textContent='指定フォルダへ写真を送信';$('checkSaved').disabled=true;uploadMsg('未送信');selectedCustomer=null;$('customerSearch').value='';$('customerSelected').textContent='取引先未選択';renderCustomers();galleryOpen=false;$('gallery').classList.add('hidden');setStep(1);refresh();message('最初から撮影できます。')};
+$('resetAll').onclick=()=>{clearTimeout(ticketDiagnosticTimer);stop();discard(ticketSource);discard(ticket);photos.forEach(discard);ticketSource=ticket=null;photos=[];setDamageZoom(1);phaseTimes=null;gasBatchMetrics=[];uploadAttempted=false;$('timingReport').textContent='送信時間：未計測';uploadSession=null;uploadToken=null;uploadNext=0;$('customerSearch').disabled=false;$('returnDate').disabled=false;$('siteName').disabled=false;$('siteName').value='';$('uploadStart').disabled=false;$('uploadStart').textContent='指定フォルダへ写真を送信';$('checkSaved').disabled=true;uploadMsg('未送信');selectedCustomer=null;$('customerSearch').value='';$('customerSelected').textContent='取引先未選択';renderCustomers();galleryOpen=false;$('gallery').classList.add('hidden');setStep(1);refresh();message('最初から撮影できます。')};
 $('closeLightbox').onclick=()=>$('lightbox').close();$('lightbox').addEventListener('close',()=>{$('lightboxImage').removeAttribute('src');selected=null});
 $('saveImage').onclick=()=>{if(selected===null)return;const a=document.createElement('a');a.href=photos[selected].url;a.download='works-damage-test-'+String(selected+1).padStart(2,'0')+'.jpg';a.click()};
 // 送信テスト: 撮影コードv0.7を維持し、POST保存のみ追加

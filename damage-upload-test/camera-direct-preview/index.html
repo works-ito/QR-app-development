@@ -34,7 +34,7 @@
 <section class="card hidden" id="completeStage"><h2>④ 写真を送信</h2>
 <div style="display:grid;gap:12px;margin:12px 0"><label>取引先検索（漢字・かな・カナ）<input id="customerSearch" type="search" autocomplete="off" placeholder="取引先名・かなで検索" style="width:100%;font-size:18px;padding:12px;border:1px solid #bcc9db;border-radius:9px"></label><div id="customerResults" style="max-height:230px;overflow:auto;border:1px solid #d4dce8;border-radius:10px;padding:5px"></div><div id="customerSelected" class="status">取引先未選択</div><button id="customerReload" class="secondary" type="button">取引先マスタを再読込</button><label>現場名（必須・略称OK）<input id="siteName" type="text" maxlength="60" autocomplete="off" placeholder="例：八潮解体" style="width:100%;font-size:18px;padding:12px;border:1px solid #bcc9db;border-radius:9px"></label><button id="siteUnknown" class="secondary" type="button">現場不明を入力</button><label>返却日<input id="returnDate" type="date" style="width:100%;font-size:18px;padding:12px;border:1px solid #bcc9db;border-radius:9px"></label></div>
 <p class="muted">保存先：テストルート / 年 / 月 / 取引先名 / 返却日。取引先マスタから候補を選択してください。手入力しただけでは確定しません。</p><div style="font-size:45px;text-align:center">✅</div><p id="summary" style="text-align:center;font-weight:700"></p><p class="muted">送信ボタンを押した場合のみ、テスト専用Google Driveフォルダへ保存します。通信失敗時は自動再送しません。</p><div class="actions"><button id="uploadStart">指定フォルダへ写真を送信</button><button id="checkSaved" class="secondary" disabled>保存状況を確認</button></div>
-<div class="status">【Drive直接送信・独立検証版】写真は指定したテストフォルダに直接保存。GASのフォルダ自動作成や一覧登録は行いません。</div><label>OAuthクライアントID<input id="directClient" style="width:100%;padding:12px;font-size:16px" placeholder="xxxx.apps.googleusercontent.com"></label><label>テスト専用フォルダID<input id="directFolder" style="width:100%;padding:12px;font-size:16px" placeholder="フォルダURLの /folders/ 以降"></label><div class="actions"><button id="directAuth" type="button" class="secondary">Googleで認証</button></div><p id="directAuthState" class="muted">未認証</p><div id="uploadInfo" class="status">未送信。伝票1枚から順番に送信します。</div>
+<div class="status">【Drive直接送信・独立検証版】写真は指定したテストフォルダに直接保存。GASのフォルダ自動作成や一覧登録は行いません。</div><label>OAuthクライアントID<input id="directClient" style="width:100%;padding:12px;font-size:16px" placeholder="xxxx.apps.googleusercontent.com"></label><label>テスト専用フォルダID<input id="directFolder" style="width:100%;padding:12px;font-size:16px" placeholder="フォルダURLの /folders/ 以降"></label><div class="actions"><button id="directAuth" type="button" class="secondary">Googleで認証</button></div><p id="directAuthState" class="muted">未認証（IDはこの端末に保存され、次回自動入力されます）</p><div id="uploadInfo" class="status">未送信。伝票1枚から順番に送信します。</div>
 <div id="timingReport" class="status" style="white-space:pre-wrap">送信時間：未計測</div><div class="actions"><button id="backDamage" class="secondary">破損写真に戻る</button><button id="resetAll">最初からやり直す</button></div></section>
 <div id="status" class="status" role="status">準備完了。まず伝票撮影を試してください。</div>
 <footer>送信検証用です。テスト用の紙・画像のみを使ってください。送信した写真はGoogle Driveのテスト専用フォルダに保存されます。Android・iPhoneで撮影方向、画質、伝票の撮り直し後も枠の大きさが変わらないことを確認してください。</footer>
@@ -198,7 +198,13 @@ async function smallEnough(blob){
 }
 
 let directToken=null,directRun=null,directFolderId=null;
-$('directAuth').onclick=()=>{try{
+const directSettingsKey='works-direct-test-settings-v1';
+try{const saved=JSON.parse(localStorage.getItem(directSettingsKey)||'{}');$('directClient').value=saved.client||'';$('directFolder').value=saved.folder||''}catch(e){}
+function rememberDirectSettings(){try{localStorage.setItem(directSettingsKey,JSON.stringify({client:$('directClient').value.trim(),folder:$('directFolder').value.trim()}))}catch(e){}}
+$('directClient').addEventListener('change',rememberDirectSettings);
+$('directFolder').addEventListener('change',rememberDirectSettings);
+
+$('directAuth').onclick=()=>{try{rememberDirectSettings();
  const id=$('directClient').value.trim();
  if(!/^[\w-]+\.apps\.googleusercontent\.com$/.test(id))throw Error('OAuthクライアントIDを入力してください');
  if(!window.google?.accounts?.oauth2)throw Error('Google認証の読み込み待ちです');
@@ -226,7 +232,7 @@ $('uploadStart').onclick=async()=>{
  const started=performance.now();uploadRunning=true;$('uploadStart').disabled=true;$('backDamage').disabled=true;$('resetAll').disabled=true;
  try{
   if(!directToken)throw Error('先にGoogleで認証してください');
-  const folder=directFolder();if(directFolderId&&directFolderId!==folder)throw Error('途中で保存先フォルダを変更できません');
+  rememberDirectSettings();const folder=directFolder();if(directFolderId&&directFolderId!==folder)throw Error('途中で保存先フォルダを変更できません');
   if(!selectedCustomer||!$('returnDate').value)throw Error('取引先と返却日を選択してください');
   directFolderId=folder;if(!directRun)directRun=new Date().toISOString().replace(/[:.]/g,'-')+'_'+Math.random().toString(36).slice(2,8);
   const images=[ticket,...photos],initial=performance.now(),saved=await listSaved(folder),initialMs=performance.now()-initial;

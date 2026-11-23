@@ -8,7 +8,7 @@ const TEST_PREFIX_ = 'WORKS_DAMAGE_TEST_';
 const MAX_PHOTOS_ = 50;
 const MAX_PHOTO_BYTES_ = 5 * 1024 * 1024;
 const MAX_BATCH_BYTES_ = 4 * 1024 * 1024;
-const MAX_BATCH_COUNT_ = 3;
+const MAX_BATCH_COUNT_ = 10;
 
 /**
  * GitHub Pages からの接続確認専用。

@@ -11,21 +11,21 @@ class CameraController {
     this.kind=null;
     this.zoom=1;
     this.generation=0;
+    this.previewFrame=0;
+    this.previewCanvas=null;
   }
   get active(){return !!this.stream;}
   get type(){return this.kind;}
   isLive(kind){return this.kind===kind&&!!this.stream&&this.stream.getVideoTracks().some(t=>t.readyState==='live');}
   video(kind){return this.videos[kind];}
   stop(){
+    this.stopPreview();
     ++this.generation;
     if(this.stream){this.stream.getTracks().forEach(t=>t.stop());this.stream=null;}
     for(const video of Object.values(this.videos)){
       video.pause();
       video.srcObject=null;
-      video.style.width='';
-      video.style.height='';
-      video.style.objectFit='';
-      video.style.transform='';
+      video.style.opacity='';
     }
     this.kind=null;
   }
@@ -50,12 +50,38 @@ class CameraController {
     this.zoom=value===2?2:1;
     this.layout();
   }
-  layout(){
-    if(!this.kind)return;
-    // CSS owns viewport sizing and 4:3 cover crop.
-    // JavaScript only applies the optional 1x/2x zoom.
-    const video=this.video(this.kind);
-    video.style.transform='translate(-50%,-50%) scale('+this.zoom+')';
+  layout(){ /* Canvas preview owns visible crop; no video transforms needed. */ }
+  crop(w,h,kind){
+    const {sx,sy,sw,sh}=this.crop(w,h,kind);
+    return {sx,sy,sw,sh};
+  }
+  stopPreview(){
+    cancelAnimationFrame(this.previewFrame);this.previewFrame=0;
+    if(this.previewCanvas){
+      this.previewCanvas.style.display='none';
+      this.previewCanvas.width=this.previewCanvas.height=0;
+      this.previewCanvas=null;
+    }
+    for(const video of Object.values(this.videos))video.style.opacity='';
+  }
+  startPreview(kind,canvas){
+    this.stopPreview();
+    if(!this.isLive(kind))return;
+    const video=this.video(kind),ctx=canvas.getContext('2d',{alpha:false});
+    this.previewCanvas=canvas;
+    canvas.style.display='block';video.style.opacity='0';
+    const paint=()=>{
+      if(!this.isLive(kind)||this.previewCanvas!==canvas)return;
+      if(video.readyState>=2&&video.videoWidth&&video.videoHeight){
+        const rect=canvas.parentElement.getBoundingClientRect();
+        const cw=Math.max(1,Math.round(rect.width)),ch=Math.max(1,Math.round(rect.height));
+        if(canvas.width!==cw||canvas.height!==ch){canvas.width=cw;canvas.height=ch;}
+        const {sx,sy,sw,sh}=this.crop(video.videoWidth,video.videoHeight,kind);
+        ctx.drawImage(video,sx,sy,sw,sh,0,0,cw,ch);
+      }
+      this.previewFrame=requestAnimationFrame(paint);
+    };
+    this.previewFrame=requestAnimationFrame(paint);
   }
   async capture(kind){
     if(!this.isLive(kind))throw Error('カメラの映像がありません');
@@ -72,7 +98,7 @@ class CameraController {
     canvas.height=Math.max(1,Math.round(sh*scale));
     canvas.getContext('2d',{alpha:false}).drawImage(video,sx,sy,sw,sh,0,0,canvas.width,canvas.height);
     try{
-      const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('JPEG変換に失敗しました')),'image/jpeg',.95));
+      const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('JPEG変換に失敗しました')),'image/jpeg',1));
       return {blob,width:canvas.width,height:canvas.height};
     }finally{canvas.width=canvas.height=0;}
   }

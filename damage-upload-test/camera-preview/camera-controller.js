@@ -52,15 +52,12 @@ class CameraController {
   layout(){
     if(!this.kind)return;
     const video=this.video(this.kind),box=video.parentElement;
-    const w=video.videoWidth,h=video.videoHeight;
-    if(!w||!h||!box.clientWidth||!box.clientHeight)return;
-    const cropRatio=4/3;
-    const sourceRatio=w/h;
-    const visibleWidth=sourceRatio>cropRatio?h*cropRatio:w;
-    const visibleHeight=sourceRatio>cropRatio?h:w/cropRatio;
-    const scale=Math.max(box.clientWidth/visibleWidth,box.clientHeight/visibleHeight);
-    video.style.width=Math.ceil(w*scale+1)+'px';
-    video.style.height=Math.ceil(h*scale+1)+'px';
+    if(!video.videoWidth||!video.videoHeight||!box.clientWidth||!box.clientHeight)return;
+    // The viewport is always 4:3. CSS object-fit:cover crops the native
+    // camera image without changing its aspect ratio, including after restart.
+    video.style.width='100%';
+    video.style.height='100%';
+    video.style.objectFit='cover';
     video.style.transform='translate(-50%,-50%) scale('+this.zoom+')';
   }
   async capture(kind){

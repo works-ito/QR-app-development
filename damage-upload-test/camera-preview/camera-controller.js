@@ -102,7 +102,7 @@ class CameraController {
     canvas.height=Math.max(1,Math.round(sh*scale));
     canvas.getContext('2d',{alpha:false}).drawImage(video,sx,sy,sw,sh,0,0,canvas.width,canvas.height);
     try{
-      const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('JPEG変換に失敗しました')),'image/jpeg',.90));
+      const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('JPEG変換に失敗しました')),'image/jpeg',.95));
       return {blob,width:canvas.width,height:canvas.height};
     }finally{canvas.width=canvas.height=0;}
   }

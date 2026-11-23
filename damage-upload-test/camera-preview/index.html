@@ -227,7 +227,7 @@ $('uploadStart').onclick=async()=>{
       if(savedBefore.has(i)){i++;continue}
       const batch=[];
       let batchBytes=0;
-      while(i<images.length&&batch.length<3){
+      while(i<images.length&&batch.length<10){
         if(savedBefore.has(i)){i++;continue}
         const blob=await smallEnough(images[i].blob);
         if(batch.length&&batchBytes+blob.size>maxBatchBytes)break;

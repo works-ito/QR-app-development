@@ -39,7 +39,7 @@
 <div id="status" class="status" role="status">準備完了。まず伝票撮影を試してください。</div>
 <footer>送信検証用です。テスト用の紙・画像のみを使ってください。送信した写真はGoogle Driveのテスト専用フォルダに保存されます。Android・iPhoneで撮影方向、画質、伝票の撮り直し後も枠の大きさが変わらないことを確認してください。</footer>
 <dialog id="lightbox"><div class="line"><b id="lightboxTitle">写真</b><button class="secondary" id="closeLightbox">閉じる</button></div><img id="lightboxImage" alt="写真拡大"><div class="actions"><button id="saveImage" class="secondary">この写真を保存</button></div></dialog>
-<script src="./camera-controller.js?v=11"></script>
+<script src="./camera-controller.js?v=16"></script>
 <script>
 (()=>{'use strict';
 const $=id=>document.getElementById(id);
@@ -49,52 +49,7 @@ function message(m,error=false){$('status').textContent=m;$('status').className=
 function setStep(n){const labels={1:['① 返却伝票を撮影','スマホは縦持ちのまま、伝票を白い枠内に収めて撮影してください。'],2:['② 伝票写真を確認','写真の向きと伝票全体が写っていることを確認してください。'],3:['③ 破損写真を撮影','破損箇所を続けて撮影してください。最大49枚まで撮影できます。'],4:['④ 写真を送信','取引先と返却日を確認して、写真を送信してください。']};$('stageTitle').textContent=labels[n][0];$('stageDescription').textContent=labels[n][1];$('ticketCaptureStage').classList.toggle('hidden',n!==1);$('ticketGuide').classList.toggle('visible',n===1&&camera.isLive('ticket'));$('ticketStage').classList.toggle('hidden',n>2);$('confirmStage').classList.toggle('hidden',n!==2);$('ticketCover').classList.toggle('hidden',n!==2);$('ticketCameraActions').classList.toggle('hidden',n===2);$('ticketInputActions').classList.toggle('hidden',n===2);$('ticketHelp').classList.toggle('hidden',n===2);$('damageStage').classList.toggle('hidden',n!==3);$('completeStage').classList.toggle('hidden',n!==4);for(let i=1;i<=4;i++)$('step'+i).classList.toggle('current',i===n)}
 function setDamageZoom(value){damageZoom=value;camera.setZoom(value);$('zoomToggle').textContent=value===1?'1×':'2×';$('zoomToggle').setAttribute('aria-pressed',String(value===2))}
 $('zoomToggle').onclick=()=>{setDamageZoom(damageZoom===1?2:1);message('破損写真：'+damageZoom+'倍で撮影します。')};
-let ticketPreviewFrame=0;
-function stopTicketCanvas(){cancelAnimationFrame(ticketPreviewFrame);ticketPreviewFrame=0;const c=$('ticketLiveCanvas');c.style.display='none';c.width=c.height=0;$('ticketVideo').style.opacity='';}
-function startTicketCanvas(){
-  stopTicketCanvas();
-  const canvas=$('ticketLiveCanvas'),video=$('ticketVideo'),ctx=canvas.getContext('2d',{alpha:false});
-  canvas.style.display='block';video.style.opacity='0';
-  const paint=()=>{
-    if(!camera.isLive('ticket')||video.readyState<2)return;
-    const w=video.videoWidth,h=video.videoHeight;
-    if(w&&h){
-      const frame=canvas.parentElement.getBoundingClientRect(),cw=Math.max(1,Math.round(frame.width)),ch=Math.max(1,Math.round(frame.height));
-      if(canvas.width!==cw||canvas.height!==ch){canvas.width=cw;canvas.height=ch;}
-      const target=4/3;let sw=w,sh=h,sx=0,sy=0;
-      if(w/h>target){sw=h*target;sx=(w-sw)/2;}else{sh=w/target;sy=(h-sh)/2;}
-      ctx.drawImage(video,sx,sy,sw,sh,0,0,canvas.width,canvas.height);
-    }
-    ticketPreviewFrame=requestAnimationFrame(paint);
-  };
-  ticketPreviewFrame=requestAnimationFrame(paint);
-}
-let damagePreviewFrame=0;
-function stopDamageCanvas(){
-  cancelAnimationFrame(damagePreviewFrame);damagePreviewFrame=0;
-  const c=$('damageLiveCanvas');c.style.display='none';c.width=c.height=0;
-  $('damageVideo').style.opacity='';
-}
-function startDamageCanvas(){
-  stopDamageCanvas();
-  const canvas=$('damageLiveCanvas'),video=$('damageVideo'),ctx=canvas.getContext('2d',{alpha:false});
-  canvas.style.display='block';video.style.opacity='0';
-  const paint=()=>{
-    if(!camera.isLive('damage')||video.readyState<2)return;
-    const w=video.videoWidth,h=video.videoHeight;
-    if(w&&h){
-      const frame=canvas.parentElement.getBoundingClientRect(),cw=Math.max(1,Math.round(frame.width)),ch=Math.max(1,Math.round(frame.height));
-      if(canvas.width!==cw||canvas.height!==ch){canvas.width=cw;canvas.height=ch;}
-      const target=4/3;let sw=w,sh=h,sx=0,sy=0;
-      if(w/h>target){sw=h*target;sx=(w-sw)/2;}else{sh=w/target;sy=(h-sh)/2;}
-      if(damageZoom===2){sw/=2;sh/=2;sx=(w-sw)/2;sy=(h-sh)/2;}
-      ctx.drawImage(video,sx,sy,sw,sh,0,0,canvas.width,canvas.height);
-    }
-    damagePreviewFrame=requestAnimationFrame(paint);
-  };
-  damagePreviewFrame=requestAnimationFrame(paint);
-}
-function stop(){stopTicketCanvas();stopDamageCanvas();camera.stop();['ticketVideo','damageVideo'].forEach(id=>$(id).classList.add('hidden'));$('ticketEmpty').classList.remove('hidden');$('damageEmpty').classList.remove('hidden');$('ticketShutter').disabled=true;$('damageShutter').disabled=true;$('ticketStart').classList.remove('hidden');$('ticketGuide').classList.remove('visible')}
+function stop(){camera.stop();['ticketVideo','damageVideo'].forEach(id=>$(id).classList.add('hidden'));$('ticketEmpty').classList.remove('hidden');$('damageEmpty').classList.remove('hidden');$('ticketShutter').disabled=true;$('damageShutter').disabled=true;$('ticketStart').classList.remove('hidden');$('ticketGuide').classList.remove('visible')}
 let ticketStartCount=0;
 let ticketDiagnosticTimer=null;
 function recordTicketDiagnostics(label){
@@ -106,7 +61,7 @@ function recordTicketDiagnostics(label){
     'トラック: '+(settings.width||'?')+' × '+(settings.height||'?')+' / '+(settings.aspectRatio||'?'),
     '撮影枠: '+frame.width.toFixed(1)+' × '+frame.height.toFixed(1),
     'video表示: '+rect.width.toFixed(1)+' × '+rect.height.toFixed(1),
-    'プレビュー: Canvas（撮影画像と同じ中央4:3切り取り）',
+    'プレビュー: 共通Canvas（撮影画像と同じ中央4:3切り取り）',
     'CSS: object-fit='+style.objectFit+' / width='+style.width+' / height='+style.height,
     '表示倍率: '+style.transform,
     '映像状態: '+video.readyState+' / '+(video.paused?'停止':'再生中'),
@@ -119,16 +74,16 @@ async function start(kind){
   try{
     const started=await camera.start(kind);if(!started)return;
     const video=camera.video(kind);
-    if(kind==='damage'){const track=camera.stream.getVideoTracks()[0],settings=track?.getSettings?.()||{};$('cameraDiagnostics').textContent='カメラ映像：'+video.videoWidth+'×'+video.videoHeight+' px ／ 実取得：'+(settings.width||'?')+'×'+(settings.height||'?')+' px ／ JPEG品質95%';}
+    if(kind==='damage'){const track=camera.stream.getVideoTracks()[0],settings=track?.getSettings?.()||{};$('cameraDiagnostics').textContent='カメラ映像：'+video.videoWidth+'×'+video.videoHeight+' px ／ 実取得：'+(settings.width||'?')+'×'+(settings.height||'?')+' px ／ JPEG品質100%';}
     video.classList.remove('hidden');$(kind==='ticket'?'ticketEmpty':'damageEmpty').classList.add('hidden');$(kind==='ticket'?'ticketShutter':'damageShutter').disabled=false;
     if(kind==='ticket'){$('ticketStart').classList.add('hidden');$('ticketGuide').classList.add('visible')}
     camera.layout();
-    if(kind==='damage')startDamageCanvas();
-    if(kind==='ticket'){startTicketCanvas();ticketStartCount++;recordTicketDiagnostics('起動直後');clearTimeout(ticketDiagnosticTimer);ticketDiagnosticTimer=setTimeout(()=>recordTicketDiagnostics('起動1秒後'),1000);}
+    camera.startPreview(kind,$(kind==='ticket'?'ticketLiveCanvas':'damageLiveCanvas'));
+    if(kind==='ticket'){ticketStartCount++;recordTicketDiagnostics('起動直後');clearTimeout(ticketDiagnosticTimer);ticketDiagnosticTimer=setTimeout(()=>recordTicketDiagnostics('起動1秒後'),1000);}
     message(kind==='ticket'?'伝票を白い枠内に収めて撮影してください。':'連続撮影できます。');
   }catch(e){stop();message('カメラ起動失敗: '+(e.message||e.name||'不明')+'。アクセス許可を確認してください。',true)}
 }
-function jpeg(canvas){return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('JPEG変換に失敗しました')),'image/jpeg',.95))}
+function jpeg(canvas){return new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('JPEG変換に失敗しました')),'image/jpeg',1))}
 function makeShot(blob,w,h){return{blob,url:URL.createObjectURL(blob),w,h}}
 async function fromVideo(kind){const shot=await camera.capture(kind);return makeShot(shot.blob,shot.width,shot.height)}
 async function fromFile(file){const bitmap=await createImageBitmap(file);try{const scale=Math.min(1,2400/Math.max(bitmap.width,bitmap.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(bitmap.width*scale));c.height=Math.max(1,Math.round(bitmap.height*scale));c.getContext('2d',{alpha:false}).drawImage(bitmap,0,0,c.width,c.height);const b=await jpeg(c),out=makeShot(b,c.width,c.height);c.width=c.height=0;return out}finally{bitmap.close()}}

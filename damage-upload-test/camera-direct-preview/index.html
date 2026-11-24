@@ -36,8 +36,12 @@ body.ticket-live #ticketCaptureStage .viewport{width:min(calc(100vw - 120px),cal
 body.ticket-live #ticketCameraActions{flex-direction:column;width:110px;flex:none;padding:5px}
 body.ticket-live #ticketShutter{width:54px;height:54px;flex:0 0 54px}
 }
+@media (orientation:landscape){
+body.camera-controls-left.ticket-live #ticketCaptureStage>.view,
+body.camera-controls-left.damage-live #damageStage>.view{flex-direction:row-reverse}
+}
 </style><script src="https://accounts.google.com/gsi/client" async defer></script></head><body><div style="position:sticky;top:0;z-index:1000;background:#fff0c7;color:#533700;text-align:center;padding:7px;font-weight:700;font-size:13px">開発版カメラ検証中（本番画面とは別）</div>
-<header><small>WORKS / SERVICE ・ 横向き撮影検証版 v9</small><h1>返却伝票・破損写真 撮影・送信テスト</h1></header><main>
+<header><small>WORKS / SERVICE ・ 横向き撮影検証版 v10</small><h1>返却伝票・破損写真 撮影・送信テスト</h1></header><main>
 <div class="steps"><span id="step1" class="current">① 伝票撮影</span><span id="step2">② 伝票確認</span><span id="step3">③ 破損写真</span><span id="step4">④ 完了確認</span></div>
 <div class="card" id="stageHeading" aria-live="polite"><h2 id="stageTitle">① 返却伝票を撮影</h2><p class="muted" id="stageDescription">スマホを横向きにして、伝票を白い枠内に収めて撮影してください。</p></div>
 <section class="card" id="ticketStage"><div id="ticketCaptureStage"><h2>① 返却伝票を撮影</h2><p class="muted">スマホを横向きにして、伝票を白い枠内に収めて撮影してください。</p>
@@ -110,7 +114,15 @@ async function setTicket(s){if(camera.isLive('ticket')){$('ticketShutter').disab
 async function task(fn){if(busy)return;busy=true;try{await fn()}catch(e){message('処理エラー: '+e.message,true)}finally{busy=false;refresh()}}
 function damageReady(){const v=$('damageVideo');return matchMedia('(orientation: landscape)').matches&&v.videoWidth>=v.videoHeight&&v.videoHeight>0}
 function ticketReady(){const v=$('ticketVideo');return matchMedia('(orientation: landscape)').matches&&v.videoWidth>=v.videoHeight&&v.videoHeight>0}
-function syncTicketOrientation(){const live=camera.isLive('ticket')&&!$('ticketCaptureStage').classList.contains('hidden');document.body.classList.toggle('ticket-live',live);$('ticketOrientation').classList.toggle('hidden',!live||matchMedia('(orientation: landscape)').matches);$('ticketShutter').disabled=busy||!live||!ticketReady()}
+function syncCameraControlSide(){
+ const legacy=typeof window.orientation==='number'?window.orientation:null;
+ const angle=legacy!==null?legacy:screen.orientation?.angle;
+ const normalized=typeof angle==='number'?((angle%360)+360)%360:null;
+ document.body.classList.toggle('camera-controls-left',matchMedia('(orientation: landscape)').matches&&normalized===270);
+}
+window.addEventListener('orientationchange',syncCameraControlSide);
+screen.orientation?.addEventListener?.('change',syncCameraControlSide);
+function syncTicketOrientation(){syncCameraControlSide();const live=camera.isLive('ticket')&&!$('ticketCaptureStage').classList.contains('hidden');document.body.classList.toggle('ticket-live',live);$('ticketOrientation').classList.toggle('hidden',!live||matchMedia('(orientation: landscape)').matches);$('ticketShutter').disabled=busy||!live||!ticketReady()}
 $('ticketVideo').addEventListener('resize',syncTicketOrientation);
 function syncDamageOrientation(){syncTicketOrientation();const live=camera.isLive('damage');document.body.classList.toggle('damage-live',live);$('damageOrientation').classList.toggle('hidden',!live||matchMedia('(orientation: landscape)').matches);$('damageShutter').disabled=busy||!live||!damageReady()||photos.length>=49}
 $('damageVideo').addEventListener('resize',syncDamageOrientation);
